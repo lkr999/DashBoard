@@ -123,7 +123,7 @@ logistic_app.layout = dmc.MantineProvider(
                                             id="baseInventory_date",
                                             # label="Start Date",
                                             # description="You can also provide a description",
-                                            minDate=date(2022, 1, 1),
+                                            # minDate=date(2022, 1, 1),
                                             value=datetime.now().date(),
                                             style={"width": 250},
                                         ),

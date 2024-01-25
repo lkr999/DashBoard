@@ -35,9 +35,7 @@ try:
     conn = pymysql.connect(host=HOST, user=USER, password=PASSWORD, db=DB, charset='utf8')
 
     cur = conn.cursor()
-    df_BI = pd.read_sql("select * from 900_BaseInventory_Board;", con=engine)  # Board Inventory DB
-    df_BI = df_BI.sort_values('BoardName')
-    select_BoardName = [ d for d in df_BI['BoardName'].unique()]
+
 except mariadb.Error as e: alert(e)
 
 from DashBoard.Logistic.app_tmp import app
@@ -186,6 +184,7 @@ layout = dmc.MantineProvider(
 
     Output('bar_chart_inventory_tob', 'figure'),
     Output('graph_title', 'children'),
+    Output('select_boardname', 'data'),
     Output('select_groupby', 'data'),
     Output('x_axis', 'data'),
     Output('graph_comments_1', 'children'),
@@ -279,6 +278,8 @@ def BoardStatus(date_range, baseInventory_date, radio_period, level_checkList, u
     df_BI_daily = df_BI.copy()
     DayList = np.arange(start_date, end_date, dtype='datetime64[D]')
     df_BI_daily.drop(df_BI_daily.index, inplace=True)
+
+    board_List = df_BI.query("Date>=@start_date and Date<=@end_date").sort_values("BoardName")["BoardName"].unique()
 
     # Indicator: Total Inventory --
     num_target = 500000
@@ -524,7 +525,7 @@ def BoardStatus(date_range, baseInventory_date, radio_period, level_checkList, u
 
     return [idc_TotalInventory, market_korea_txt, market_vietnam_txt, update_date,
             cumulate_in_year_txt, cumulate_out_year_txt, gap_year_txt, cumulate_in_month_txt, cumulate_out_month_txt, gap_month_txt,
-            chart_1, graph_title, selected_group_items, selected_xaxis_items,
+            chart_1, graph_title, board_List, selected_group_items, selected_xaxis_items,
             graph_comments_1, graph_comments_2, graph_comments_3, graph_comments_4]
 
 

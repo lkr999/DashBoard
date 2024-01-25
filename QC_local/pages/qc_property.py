@@ -148,10 +148,6 @@ layout = dmc.MantineProvider(
                         dcc.Graph(id='graph_1', style={'width':1550, 'height':600 } ),
                         dmc.Divider(label='Graph Detail',labelPosition='left', size='xs', color='blue'),
 
-                        # dmc.Container(id='graph_detail', size="xs", px="xs",
-                        #               style={"height": 300, 'width':1500,
-                        #                      "marginTop": 5,"marginBottom": 5, 'align': 'left'},
-                        #               ),
                         dcc.Textarea(
                                 id='graph_detail',
                                 value='Textarea content initialized\nwith multiple lines of text',
@@ -283,28 +279,33 @@ def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkLis
             qry_chart = qry_daterange + " and TOB in @select_tob"
 
             df_chart1 = df.query(qry_chart)
-            if len(spec_min) < 1: y_spec_min = []
-            else: y_spec_min = [spec_min[0] for i in df_chart1[Period]]
-            if len(spec_max) < 1: y_spec_max = []
-            else: y_spec_max = [spec_max[0] for i in df_chart1[Period]]
+            print('df chk3:', df_chart1.empty)
 
-            data_1 = df_chart1[select_property].dropna()
-            span_cpk = (np.mean(data_1))
+            if df_chart1.empty:pass
+            else:
+                if len(spec_min) < 1: y_spec_min = []
+                else: y_spec_min = [spec_min[0] for i in df_chart1[Period]]
+                if len(spec_max) < 1: y_spec_max = []
+                else: y_spec_max = [spec_max[0] for i in df_chart1[Period]]
 
-            y_Cpk = [cal_cpk(data=df_chart1[df_chart1[Period]==i][select_property].dropna().values, low_spec=spec_min[0], up_spec=spec_max[0])*100 for i in df_chart1[Period].values]
+                data_1 = df_chart1[select_property].dropna()
+                span_cpk = (np.mean(data_1))
 
-            chart_1 = px.box(df_chart1, x=Period, y=select_property, color='TOB')
-            chart_1.add_scatter(x=df_chart1[Period], y=y_spec_min, name='Lower Spec',
-                                mode='lines', line=dict(color='red', width=3, dash='dash'),)
-            chart_1.add_scatter(x=df_chart1[Period], y=y_spec_max, name='Uppper Spec',
-                                mode='lines', line=dict(color='magenta', width=3, dash='dot'),)
+                y_Cpk = [cal_cpk(data=df_chart1[df_chart1[Period]==i][select_property].dropna().values, low_spec=spec_min[0], up_spec=spec_max[0])*100 for i in df_chart1[Period].values]
 
-            # type-1 anova summary
-            ols_txt = select_property + ' ~ C(' + Period + ', Sum)*C(TOB, Sum)'
-            model = ols(ols_txt, data=df_chart1).fit()
-            table_type_1 = sm.stats.anova_lm(model, typ=1)
+                # if len(df_chart1)>0:
+                chart_1 = px.box(df_chart1, x=Period, y=select_property, color='TOB')
+                chart_1.add_scatter(x=df_chart1[Period], y=y_spec_min, name='Lower Spec',
+                                    mode='lines', line=dict(color='red', width=3, dash='dash'),)
+                chart_1.add_scatter(x=df_chart1[Period], y=y_spec_max, name='Uppper Spec',
+                                    mode='lines', line=dict(color='magenta', width=3, dash='dot'),)
 
-            graph_detail = "# OLS Analyze Result --------------------------------------------------- \n \n " + str(table_type_1)
+                # type-1 anova summary
+                ols_txt = select_property + ' ~ C(' + Period + ', Sum)*C(TOB, Sum)'
+                model = ols(ols_txt, data=df_chart1).fit()
+                table_type_1 = sm.stats.anova_lm(model, typ=1)
+
+                graph_detail = "# OLS Analyze Result --------------------------------------------------- \n \n " + str(table_type_1)
 
         if select_graph=='Class Base Analyze(Box Chart)':
             qry_chart = "Class_1 in @select_class"
@@ -312,23 +313,25 @@ def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkLis
             df_chart1 = df.query(qry_chart)
             chart_x_val = 'Class_1'
 
-            if len(spec_min) < 1: y_spec_min = []
-            else: y_spec_min = [spec_min[0] for i in df_chart1[Period]]
-            if len(spec_max) < 1: y_spec_max = []
-            else: y_spec_max = [spec_max[0] for i in df_chart1[Period]]
+            if df_chart1.empty: pass
+            else:
+                if len(spec_min) < 1: y_spec_min = []
+                else: y_spec_min = [spec_min[0] for i in df_chart1[Period]]
+                if len(spec_max) < 1: y_spec_max = []
+                else: y_spec_max = [spec_max[0] for i in df_chart1[Period]]
 
-            chart_1 = px.box(df_chart1, x=chart_x_val, y=select_property, color='Class_1')
-            chart_1.add_scatter(x=df_chart1[chart_x_val], y=y_spec_min, name='Lower Spec',
-                                mode='lines', line=dict(color='red', width=3, dash='dash'), )
-            chart_1.add_scatter(x=df_chart1[chart_x_val], y=y_spec_max, name='Uppper Spec',
-                                mode='lines', line=dict(color='magenta', width=3, dash='dot'), )
+                chart_1 = px.box(df_chart1, x=chart_x_val, y=select_property, color='Class_1')
+                chart_1.add_scatter(x=df_chart1[chart_x_val], y=y_spec_min, name='Lower Spec',
+                                    mode='lines', line=dict(color='red', width=3, dash='dash'), )
+                chart_1.add_scatter(x=df_chart1[chart_x_val], y=y_spec_max, name='Uppper Spec',
+                                    mode='lines', line=dict(color='magenta', width=3, dash='dot'), )
 
-            # type-1 anova summary
-            ols_txt = select_property + ' ~ C(Class_1, Sum)'
-            model = ols(ols_txt, data=df_chart1).fit()
-            table_type_1 = sm.stats.anova_lm(model, typ=1)
+                # type-1 anova summary
+                ols_txt = select_property + ' ~ C(Class_1, Sum)'
+                model = ols(ols_txt, data=df_chart1).fit()
+                table_type_1 = sm.stats.anova_lm(model, typ=1)
 
-            graph_detail = "# OLS Analyze Result --------------------------------------------------- \n \n " + str(table_type_1)
+                graph_detail = "# OLS Analyze Result --------------------------------------------------- \n \n " + str(table_type_1)
 
         if select_graph=='Multi Regression':
             qry_reg_txt = qry_daterange + " and TOB in @select_tob"
@@ -336,30 +339,30 @@ def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkLis
             reg_items = regression_items_y + regression_items_x
             df_reg = df.query(qry_reg_txt)[reg_items].dropna()
 
+            if df_reg.empty:pass
+            else:
+                x = df_reg[regression_items_x]
+                y = df_reg[regression_items_y[0]]
 
-            x = df_reg[regression_items_x]
-            y = df_reg[regression_items_y[0]]
+                # with statsmodels
+                x = sm.add_constant(x)  # adding a constant
 
-            # with statsmodels
-            x = sm.add_constant(x)  # adding a constant
+                model = sm.OLS(y, x).fit()
+                predictions = model.predict(x)
 
-            model = sm.OLS(y, x).fit()
-            predictions = model.predict(x)
+                print_model = model.summary()
+                graph_detail = str(print_model)
 
-            print_model = model.summary()
-            print(print_model)
-            graph_detail = str(print_model)
+                # X = x.reshape(-1, 1)
+                #
+                # model = LinearRegression()
+                # model.fit(X, y)
+                #
+                # x_range = np.linspace(X.min(), X.max(), 100)
+                # y_range = model.predict(x_range.reshape(-1, 1))
 
-            # X = x.reshape(-1, 1)
-            #
-            # model = LinearRegression()
-            # model.fit(X, y)
-            #
-            # x_range = np.linspace(X.min(), X.max(), 100)
-            # y_range = model.predict(x_range.reshape(-1, 1))
-
-            chart_1 = px.scatter_matrix(df_reg)
-            # chart_1.add_traces(go.Scatter(x=x_range, y=y_range, name='Regression Fit'))
+                chart_1 = px.scatter_matrix(df_reg)
+                # chart_1.add_traces(go.Scatter(x=x_range, y=y_range, name='Regression Fit'))
 
 
         if select_graph=='Process Capability':
@@ -367,24 +370,28 @@ def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkLis
 
             df_cpk = df.query(qry_cpk_txt)
 
-            # if len(spec_min) < 1: y_spec_min = []
-            # else: y_spec_min = [spec_min[0] for i in df_cpk[Period]]
-            # if len(spec_max) < 1: y_spec_max = []
-            # else: y_spec_max = [spec_max[0] for i in df_cpk[Period]]
+            if df_cpk.empty:pass
+            else:
+                # if len(spec_min) < 1: y_spec_min = []
+                # else: y_spec_min = [spec_min[0] for i in df_cpk[Period]]
+                # if len(spec_max) < 1: y_spec_max = []
+                # else: y_spec_max = [spec_max[0] for i in df_cpk[Period]]
 
-            Cpk = cal_cpk(data=df_cpk[select_property].dropna().values, low_spec=spec_min[0], up_spec=spec_max[0])
-            ppm = cpk_to_ppm(Cpk)
+                Cpk = cal_cpk(data=df_cpk[select_property].dropna().values, low_spec=spec_min[0], up_spec=spec_max[0])
+                ppm = cpk_to_ppm(Cpk)
 
-            chart_1 = px.histogram(df_cpk[select_property], x=select_property,title=select_property + " of Ppk: " + "{:,.4f}".format(Cpk))
-            if spec_min[0]>0: chart_1.add_vline(x=spec_min[0], line_width=3, line_dash="dash", line_color="red", )
-            if spec_max[0]>0: chart_1.add_vline(x=spec_max[0], line_width=3, line_dash="dash", line_color="purple", )
-            # chart_1.add_vline(x=spec_max[0], line_width=3, line_dash="dash", line_color="red", name='upper Limit')
+                chart_1 = px.histogram(df_cpk[select_property], x=select_property,title=select_property + " of Ppk: " + "{:,.4f}".format(Cpk))
+                if spec_min[0]>0: chart_1.add_vline(x=spec_min[0], line_width=3, line_dash="dash", line_color="red", )
+                if spec_max[0]>0: chart_1.add_vline(x=spec_max[0], line_width=3, line_dash="dash", line_color="purple", )
+                # chart_1.add_vline(x=spec_max[0], line_width=3, line_dash="dash", line_color="red", name='upper Limit')
 
-            graph_detail = select_property + " of Ppk: " + "{:,.4f} \n \n ==> Defect ratio: {:,.0f} ppm".format(Cpk, ppm) \
-                + ""
-
-
+                graph_detail = select_property + " of Ppk: " + "{:,.4f} \n \n ==> Defect ratio: {:,.0f} ppm".format(Cpk, ppm) \
+                    + ""
         return [select_graph, chart_1, list_TOB, list_Property, list_Class, graph_detail, list_Property, list_Property]
+
     except Exception as e:
-        alert(e)
+        # alert(e)
         return
+
+
+

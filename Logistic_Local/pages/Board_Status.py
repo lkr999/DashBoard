@@ -34,13 +34,11 @@ try:
     conn = pymysql.connect(host=HOST, user=USER, password=PASSWORD, db=DB, charset='utf8')
     cur = conn.cursor()
 
-    df_BI = pd.read_sql("select * from 900_BaseInventory_Board;", con=engine)  # Board Inventory DB
-    df_BI = df_BI.sort_values('BoardName')
-    select_BoardName = [ d for d in df_BI['BoardName'].unique()]
+
 except mariadb.Error as e: alert(e)
 
 
-from DashBoard.Logistic_Local.app import logistic_app
+from DashBoard.Logistic.app import logistic_app
 
 layout = dmc.MantineProvider(
     id = 'dark_moder',
@@ -218,6 +216,7 @@ layout = dmc.MantineProvider(
 def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_checkList, unit_Analyze,
                 select_graph, select_boardname, select_groupby, x_axis, data_copy, oneday_range, checked,
                 n):
+
     try:
         TODAY = date.today()
         # print(date_range.start_date)
@@ -264,10 +263,9 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         # Clipboard df ----
         df_clipbaord = ''
 
-
-        Period = 'Date'
+        Period = 'Date2'
         if radio_period == 'Daily':
-            Period = 'Date'
+            Period = 'Date2'
         elif radio_period == 'Weekly':
             Period = 'WeekOfYear'
         elif radio_period == 'Monthly':
@@ -277,7 +275,7 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         elif radio_period == 'Yearly':
             Period = 'Year'
         else:
-            Period = 'Date'
+            Period = 'Date2'
 
         # Board Inventory ----------
         BASE_DATE = baseInventory_date
@@ -303,8 +301,11 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         DayList = np.arange(start_date, end_date, dtype='datetime64[D]')
         df_BI_daily.drop(df_BI_daily.index, inplace=True)
 
+        board_List = df_Output_BI.query("Date>=@start_date and Date<=@end_date").sort_values("BoardName_y")["BoardName_y"].unique()
+        print(df_Output_BI)
+
         # Indicator: Total Inventory --
-        num_target = 500000
+        num_target = 710000
         if unit_Analyze == 'Qty_pcs':
             num_target = num_target / 1.62
         elif unit_Analyze == 'Qty_pt':
@@ -312,9 +313,9 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         else:
             num_target = num_target
 
-        update_input = df_Input['Date'].max()
-        update_output = df_Output['Date'].max()
-        update_date = max(update_output,update_input)
+        # update_input = df_Input['Date'].max()
+        # update_output = df_Output['Date'].max()
+        update_date = TODAY # max(update_output,update_input)
 
         # Indicators -------------------------------
         val_invTotal = df_BI.query("Level in @val_BoardLevel")[unit_Analyze].sum()
@@ -339,6 +340,7 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         update_date = "Latest Updated: " + str(update_date)
 
         # Cumulate ----
+
         year_base = BASE_DATE.year
         month_base = BASE_DATE.month
 
@@ -389,7 +391,6 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         gap_month_txt = "IN - OUT: {:,.0f} ".format(gap_month)
 
         # Inventory Graphs -----
-
         graph_title = select_graph
         selected_group_items = []
         selected_xaxis_items = []
@@ -399,7 +400,6 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         graph_comments_4 = ''
         # print(end_date)
         chart_1 = go.Figure()
-        selected_boardname_items = df_BI.sort_values(by=['BoardName'],ascending=True)['BoardName'].unique()
 
         if len(select_boardname)>=1:
             qry_board_date = "(BoardName_y in @select_boardname) and (Level in @val_BoardLevel) and Date>=@start_date and Date<=@end_date"
@@ -408,7 +408,6 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
             qry_board_date = "Level in @val_BoardLevel and Date>=@start_date and Date<=@end_date"
             qry_board_level = "Level in @val_BoardLevel"
 
-        df_bar1_inventory_tob = df_BI_daily_bar3 = df_BI_daily.query(qry_board_level).groupby(by=['BoardName','MarketGroup'], as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum'})
         if select_graph=='In Stock Status of Each Products':
             selected_group_items = ['MarketGroup', 'Level', 'BoardName']
             selected_xaxis_items = ['MarketGroup', 'Level', 'BoardName']
@@ -420,18 +419,18 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
                 gr_by = ['BoardName', 'MarketGroup', ]
                 x_val = 'BoardName'
 
-            print(gr_by, x_val, filter_apply)
-
             total_Invent = df_BI.query(qry_board_level).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum'})
             df_BI['Ratio'] = df_BI.query(qry_board_level)[unit_Analyze] / total_Invent[unit_Analyze]
             df_BI_bar1 = df_BI.query(qry_board_level).groupby(by=gr_by, as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum','Ratio':'sum'}).sort_values(by='Qty_sqm', ascending=False)
-            bar_chart_inventory_tob = px.bar(df_BI_bar1, x=x_val, y=unit_Analyze, color=gr_by[-1], text_auto=True, text='Ratio',
-                                orientation='v', hover_data={'Ratio':':0.0%',unit_Analyze:':,.0f'})
-            bar_chart_inventory_tob.update_traces(texttemplate='%{y:,.0f} (%{text:0.0%})',)
-            chart_1 = bar_chart_inventory_tob
 
-            df_clipbaord = df_BI_bar1
-            refresh = None
+            if df_BI_bar1.empty:pass
+            else:
+                bar_chart_inventory_tob = px.bar(df_BI_bar1, x=x_val, y=unit_Analyze, color=gr_by[-1], text_auto=True, text='Ratio',
+                                    orientation='v', hover_data={'Ratio':':0.0%',unit_Analyze:':,.0f'})
+                bar_chart_inventory_tob.update_traces(texttemplate='%{y:,.0f} (%{text:0.0%})',)
+                chart_1 = bar_chart_inventory_tob
+
+                df_clipbaord = df_BI_bar1
 
 
         if select_graph=='Trend Analyze Input/Output of Boards':
@@ -450,24 +449,27 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
             df_daily_in= df_Input_BI.query(qry_board_date).groupby(by=[Period], as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum'}).fillna(0)
             df_daily_out= df_Output_BI.query(qry_board_date).groupby(by=[Period], as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum'}).fillna(0)
 
-            x_list = df_daily_out[Period]
+            if df_daily_out.empty: pass
+            else:
 
-            sct_in_out = go.Figure()
-            sct_in_out.add_scatter(x=x_list, y=df_daily_in[unit_Analyze],
-                                   mode='markers+lines+text', textposition='top center', texttemplate='%{y:,.0f}', name='Input',
-                                   marker=dict(color='blue', size=11, line=dict(color='MediumPurple', width=2)),)
-            sct_in_out.add_scatter(x=x_list, y=df_daily_out[unit_Analyze],
-                                   mode='markers+lines+text', textposition='top center', texttemplate='%{y:,.0f}', name='Output',
-                                   marker=dict(color='red', size=11, line=dict(color='MediumPurple', width=2)), )
-            sct_in_out.add_scatter(x=x_list, y=(df_daily_in[unit_Analyze] - df_daily_out[unit_Analyze]),
-                                   mode='markers+lines+text', textposition='top center', texttemplate='%{y:,.0f}', name='diff_Inventory',
-                                   marker=dict(color='green', size=11, line=dict(color='MediumPurple', width=2)), )
-            # sct_in_out.update_traces(hover_data='%{y:,.0f}')
-            sct_in_out.update_traces(hovertemplate=None, )
-            sct_in_out.update_layout(hovermode="x unified")
-            chart_1 = sct_in_out
+                x_list = df_daily_out[Period]
 
-            df_clipbaord = df_daily_out
+                sct_in_out = go.Figure()
+                sct_in_out.add_scatter(x=x_list, y=df_daily_in[unit_Analyze],
+                                       mode='markers+lines+text', textposition='top center', texttemplate='%{y:,.0f}', name='Input',
+                                       marker=dict(color='blue', size=11, line=dict(color='MediumPurple', width=2)),)
+                sct_in_out.add_scatter(x=x_list, y=df_daily_out[unit_Analyze],
+                                       mode='markers+lines+text', textposition='top center', texttemplate='%{y:,.0f}', name='Output',
+                                       marker=dict(color='red', size=11, line=dict(color='MediumPurple', width=2)), )
+                sct_in_out.add_scatter(x=x_list, y=(df_daily_in[unit_Analyze] - df_daily_out[unit_Analyze]),
+                                       mode='markers+lines+text', textposition='top center', texttemplate='%{y:,.0f}', name='diff_Inventory',
+                                       marker=dict(color='green', size=11, line=dict(color='MediumPurple', width=2)), )
+                # sct_in_out.update_traces(hover_data='%{y:,.0f}')
+                sct_in_out.update_traces(hovertemplate=None, )
+                sct_in_out.update_layout(hovermode="x unified")
+                chart_1 = sct_in_out
+
+                df_clipbaord = df_daily_out
 
             # Graph comments ---
             qry_txt_korea = qry_board_date + " and MarketGroup=='Korea'"
@@ -495,7 +497,6 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
             graph_comments_3 ='  Output: {:,.0f} ({:,.0f} + {:,.0f}) {:.0%}'.format(qty_total_out, qty_total_out_korea, qty_total_out_viet, qty_out_kr_ratio)
             graph_comments_4 ='  In-Out: {:,.0f} ({:,.0f} + {:,.0f})'.format(qty_diff, qty_diff_korea, qty_diff_viet,)
 
-            refresh = None
 
         # Output Status ----------------
         if select_graph == 'Output Status':
@@ -514,14 +515,18 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
             df_Output_BI['Ratio'] = df_Output_BI.query(qry_board_date)[unit_Analyze] / total_out[unit_Analyze]
 
             df_daily_out = df_Output_BI.query(qry_board_date).groupby(by=gr_by, as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum', 'Ratio':'sum'}).sort_values(x_val, ascending=True)
-            bar_chart_11 = px.bar(df_daily_out, x=x_val, y=unit_Analyze, color=gr_by[-1],text='Ratio', text_auto=True, barmode='group',
-                                  hover_data={'Ratio':':0.0%',unit_Analyze:':,.0f'})
-            # bar_chart_11.update_traces(visible="legendonly")
-            bar_chart_11.update_traces(texttemplate='%{y:,.0f} (%{text:0.0%})', )
-            chart_1 = bar_chart_11
+
+            if df_daily_out.empty:pass
+            else:
+                bar_chart_11 = px.bar(df_daily_out, x=x_val, y=unit_Analyze, color=gr_by[-1],text='Ratio', text_auto=True, barmode='group',
+                                      hover_data={'Ratio':':0.0%',unit_Analyze:':,.0f'})
+                # bar_chart_11.update_traces(visible="legendonly")
+                bar_chart_11.update_traces(texttemplate='%{y:,.0f} (%{text:0.0%})', )
+                chart_1 = bar_chart_11
 
             df_clipbaord = df_daily_out
-            refresh=None
+
+            print('CHK OK 14  ====', refresh)
 
         # Input Staus ----------------
         if select_graph == 'Input Status':
@@ -542,14 +547,17 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
             df_Input_BI['Ratio'] = df_Input_BI.query(qry_board_date)[unit_Analyze] / total_in[unit_Analyze]
 
             df_daily_in = df_Input_BI.query(qry_board_date).groupby(by=gr_by, as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum', 'Ratio': 'sum'}).sort_values(x_val, ascending=True)
-            bar_chart_11 = px.bar(df_daily_in, x=x_val, y=unit_Analyze, color=gr_by[-1], text='Ratio', text_auto=True, barmode='group',
-                                  hover_data={'Ratio': ':0.0%', unit_Analyze: ':,.0f'})
-            # bar_chart_11.update_traces(visible="legendonly")
-            bar_chart_11.update_traces(texttemplate='%{y:,.0f} (%{text:0.0%})', )
-            chart_1 = bar_chart_11
 
-            df_clipbaord = df_daily_in
-            refresh = None
+            if df_daily_in.empty: pass
+            else:
+                bar_chart_11 = px.bar(df_daily_in, x=x_val, y=unit_Analyze, color=gr_by[-1], text='Ratio', text_auto=True, barmode='group',
+                                      hover_data={'Ratio': ':0.0%', unit_Analyze: ':,.0f'})
+                # bar_chart_11.update_traces(visible="legendonly")
+                bar_chart_11.update_traces(texttemplate='%{y:,.0f} (%{text:0.0%})', )
+                chart_1 = bar_chart_11
+
+                df_clipbaord = df_daily_in
+                refresh = None
 
         # Data copy to clipboard ----
         if data_copy is not None:
@@ -566,18 +574,13 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
 
         return [idc_TotalInventory, market_korea_txt, market_vietnam_txt, update_date,
                 cumulate_in_year_txt, cumulate_out_year_txt, gap_year_txt, cumulate_in_month_txt, cumulate_out_month_txt, gap_month_txt,
-                chart_1, graph_title, selected_boardname_items, selected_group_items, selected_xaxis_items,
+                chart_1, graph_title, board_List, selected_group_items, selected_xaxis_items,
                 graph_comments_1, graph_comments_2, graph_comments_3, graph_comments_4]
 
     except Exception as e:
-        alert(e)
+        # alert(e)
         return
 
 
-
-# return [idc_TotalInventory, market_korea_txt, market_vietnam_txt, update_date,
-#         cumulate_in_year_txt, cumulate_out_year_txt, gap_year_txt, cumulate_in_month_txt, cumulate_out_month_txt, gap_month_txt,
-#         chart_1, graph_title, selected_group_items, selected_xaxis_items,
-#         graph_comments_1, graph_comments_2, graph_comments_3, graph_comments_4]
 
 

@@ -36,11 +36,7 @@ try:
     engine = create_engine("mysql://{user}:{password}@{host}/{db}".format(user=USER, password=PASSWORD, host=HOST, db=DB))
     # conn = mysql.connector.connect(**config)
     conn = pymysql.connect(host=HOST, user=USER, password=PASSWORD, db=DB, charset='utf8')
-
     cur = conn.cursor()
-    df_BI = pd.read_sql("select * from 900_BaseInventory_Board;", con=engine)  # Board Inventory DB
-    df_BI = df_BI.sort_values('BoardName')
-    select_BoardName = [ d for d in df_BI['BoardName'].unique()]
 except mariadb.Error as e: alert(e)
 
 from DashBoard.QC_local.app import qc_app2
@@ -164,7 +160,7 @@ layout = dmc.MantineProvider(
                     label='Select BoardName',
                     placeholder="Select all you like!",
                     id="select_boardname", value=[],
-                    data=select_BoardName,
+                    data=[],
                     style={"width": 350, "marginBottom": 0},
                 ),
 
@@ -183,14 +179,14 @@ layout = dmc.MantineProvider(
                     data=[],
                     style={"width": 200, "marginBottom": 0},
                 ),
-
-                dmc.Button(
-                    "Data Copy",
-                    id='qdata_copy',
-                    variant="outline",
-                    leftIcon=DashIconify(icon="streamline:graph"),
-                    style={"width": 200, "marginBottom": 0},
-                ),
+                dmc.Checkbox(id="filter_apply", label="Apply Filter", mb=10, value=False),
+                # dmc.Button(
+                #     "Data Copy",
+                #     id='qdata_copy',
+                #     variant="outline",
+                #     leftIcon=DashIconify(icon="streamline:graph"),
+                #     style={"width": 200, "marginBottom": 0},
+                # ),
 
             ]
         ),
@@ -211,6 +207,7 @@ layout = dmc.MantineProvider(
                         dmc.Text(id='graph_comments_2', size='xs', color='black',),
                         dmc.Text(id='graph_comments_3', size='xs', color='blue',),
                         dmc.Text(id='graph_comments_4', size='xs', color='red',),
+                        dmc.Text(id='graph_comments_5', size='xs', color='black',),
                     ]
                 ),
 
@@ -258,7 +255,7 @@ layout = dmc.MantineProvider(
 
 @qc_app2.callback(
     # Board Inventory ---
-    Output('select_groupby', 'data'),
+    [Output('select_groupby', 'data'),
     Output('select_boardname', 'data'),
     Output('x_axis', 'data'),
 
@@ -305,7 +302,6 @@ layout = dmc.MantineProvider(
     Output('ng_product_last', 'children'),
     Output('x_product_last', 'children'),
     Output('update_time', 'children'),
-    # 6
 
     Output('bar_1', 'figure'),
     Output('x_axis', 'value'),
@@ -318,24 +314,30 @@ layout = dmc.MantineProvider(
 
     Output('graph_comments_1', 'children'),
     Output('graph_comments_2', 'children'),
-
+    Output('graph_comments_3', 'children'),
+    Output('graph_comments_4', 'children'),
+    Output('graph_comments_5', 'children'),],
 
     # Board Inventory ---
-    Input('date_range', 'value'),
+    [Input('date_range', 'value'),
     Input('baseInventory_date', 'value'),
     Input('radio_period', 'value'),
     Input('level_checkList', 'value'),
     Input('unit_Analyze', 'value'),
     Input('oneday_range', 'checked'),
+
     Input('select_boardname', 'value'),
     Input('select_groupby', 'value'),
     Input('x_axis', 'value'),
     Input('select_graph', 'value'),
+
     Input('refresh', 'n_clicks'),
+    Input('filter_apply', 'checked'),]
 
 )
-def update_contents(date_range, baseInventory_date, radio_period, level_checkList, unit_Analyze, oneday_range, select_boardname,
-                    select_groupby, x_axis, select_graph, n_clicks):
+def update_contents(date_range, baseInventory_date, radio_period, level_checkList, unit_Analyze, oneday_range,
+                    select_boardname, select_groupby, x_axis, select_graph,
+                    n_clicks, filter_apply):
 
     # Initial define ------
     select_groupby_val = []
@@ -346,7 +348,22 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
     graph_comments_2 = ''
     graph_comments_3 = ''
     graph_comments_4 = ''
+    graph_comments_5 = ''
     last_boardname = ''
+
+    Period = 'Date2'
+    if radio_period == 'Daily':
+        Period = 'Date2'
+    elif radio_period == 'Weekly':
+        Period = 'WeekOfYear'
+    elif radio_period == 'Monthly':
+        Period = 'Month'
+    elif radio_period == 'Quarterly':
+        Period = 'Quarter'
+    elif radio_period == 'Yearly':
+        Period = 'Year'
+    else:
+        Period = 'Date2'
 
     try:
         TODAY = date.today()
@@ -408,11 +425,10 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
         df_no_qry = df.copy()
         # df = df.query(qry_board_date)
 
-
+        board_List = df.query("Evaluate in @level_checkList and Date>=@start_date and Date<=@end_date").sort_values('BoardName')['BoardName'].unique()
 
         select_groupby_list = ['Date2','WeekOfYear', 'Month', 'Quarter', 'Evaluate','BoardName']
         x_axis_list = ['Date2','WeekOfYear', 'Month', 'Quarter', 'Evaluate','BoardName']
-        select_boardname_list = df_no_qry.sort_values(by='BoardName', ascending=True)['BoardName'].unique()
 
         # Daily Calculate -----
         daily_product = df_no_qry.query("Date==@baseInventory_date")[unit_Analyze].sum()
@@ -490,7 +506,7 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
             weekly_ratio_ng = weekly_product_ng / weekly_product
             weekly_ratio_x = weekly_product_x / weekly_product
 
-        weekly_result = str(baseInventory_date.isocalendar().week) + ' _Week_Cumulated'
+        weekly_result = 'Week_' + str(baseInventory_date.isocalendar().week) + ' _Cumulated'
         weekly_result_1 = "Products:  {:,.0f}".format(weekly_product)
         weekly_result_2 = "Good:  {:,.0f} ({:0.0%})".format(weekly_product_good, weekly_ratio_good)
         weekly_result_3 = "Sort:  {:,.0f} ({:0.0%})".format(weekly_product_sort, weekly_ratio_sort)
@@ -556,54 +572,155 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
 
             return group
 
-        if oneday_range: qry_daterange_2 = "Date>=@start_month and Date<=@end_date"
-        else: qry_daterange_2 = "Date>=@start_date and Date<=@end_date"
+        if oneday_range:
+            qry_daterange_1 = "Date>=@start_month and Date<=@end_date"
+            qry_daterange_2 = "Date>=@start_month and Date<=@end_date" + " and " + qry_board_level
+        else:
+            qry_daterange_1 = "Date>=@start_date and Date<=@end_date"
+            qry_daterange_2 = "Date>=@start_date and Date<=@end_date" + " and " + qry_board_level
+
+
+
 
         if select_graph=='Good Board Ratio(Daily)':
             graph_title = 'Good Board Ratio(Period)'
-            x_axis_val = 'Date2'
-            gr_by = [x_axis_val]
 
-            if radio_period=='Daily': x_axis_val = 'Date2'
-            elif radio_period=='Weekly': x_axis_val = 'WeekOfYear'
-            elif radio_period=='Monthly': x_axis_val = 'Month'
-            elif radio_period=='Quarterly': x_axis_val = 'Quarter'
-            else: x_axis_val = 'Date2'
+            selected_group_items = [Period, 'Evaluate', 'BoardName']
+            selected_xaxis_items = [Period, 'Evaluate', 'BoardName']
 
-            gr_by = [x_axis_val]
-            select_groupby_val = gr_by
+            if len(select_groupby) >= 1 and len(x_axis) >= 1 and filter_apply:
+                gr_by = select_groupby
+                x_val = x_axis
+            else:
+                gr_by = [Period]
+                x_val = Period
 
             # Bar 1: Daily Evaluate Result ---
             df_sct_1 = df_no_qry.query(qry_daterange_2).groupby(by=gr_by, as_index=False).apply(f_good_ratio)
-            sct_chart1 = px.scatter(df_sct_1, x=x_axis_val, y='GoodRatio', text='grSum', )
+            sct_chart1 = px.scatter(df_sct_1, x=x_val, y='GoodRatio', text='grSum', )
             sct_chart1.update_traces(textposition='top center', mode='markers+lines+text', texttemplate='%{y:,.1f} (%{text:,.0f})', )
+
             takeoff_chart_1 = sct_chart1
+
+            # Graph Comments 1--------------------------------------
+            df_grp = df.query(qry_board_date)
+            g_product = df_grp.query(qry_daterange_2)[unit_Analyze].sum()
+            g_good = df_grp.query(qry_daterange_1 + " and Evaluate in ['G','G2','G3']")[unit_Analyze].sum()
+            g_sort = df_grp.query(qry_daterange_1 + " and Evaluate in ['S',]")[unit_Analyze].sum()
+            g_ng = df_grp.query(qry_daterange_1 + " and Evaluate in ['NG',]")[unit_Analyze].sum()
+            g_x = df_grp.query(qry_daterange_1 + " and Evaluate in ['X',]")[unit_Analyze].sum()
+
+            g_ratio_good = 0
+            g_ratio_sort = 0
+            g_ratio_ng = 0
+            g_ratio_x = 0
+
+            if g_product > 0:
+                g_ratio_good = g_good / g_product
+                g_ratio_sort = g_sort / g_product
+                g_ratio_ng = g_ng / g_product
+                g_ratio_x = g_x / g_product
+
+            graph_comments_1 = "Products:  {:,.0f}".format(g_product)
+            graph_comments_2 = "Good:  {:,.0f} ({:0.0%})".format(g_good, g_ratio_good)
+            graph_comments_3 = "Sort:  {:,.0f} ({:0.0%})".format(g_sort, g_ratio_sort)
+            graph_comments_4 = "NG:  {:,.0f} ({:0.0%})".format(g_ng, g_ratio_ng)
+            graph_comments_5 = "CUT:  {:,.0f} ({:0.0%})".format(g_x, g_ratio_x)
+
 
         if select_graph=='Good Board Ratio(BoardName)':
             graph_title = 'Good Board Ratio(BoardName)'
 
-            x_axis_val = 'BoardName'
-            gr_by = [x_axis_val]
+            selected_group_items = [Period, 'Evaluate', 'BoardName']
+            selected_xaxis_items = [Period, 'Evaluate', 'BoardName']
 
-            select_groupby_val = gr_by
+            if len(select_groupby) >= 1 and len(x_axis) >= 1 and filter_apply:
+                gr_by = select_groupby
+                x_val = x_axis
+            else:
+                gr_by = ['BoardName']
+                x_val = 'BoardName'
+
 
             # Bar 1: Daily Evaluate Result ---
             df_sct_1 = df_no_qry.query(qry_daterange_2).groupby(by=gr_by, as_index=False).apply(f_good_ratio)
-            sct_chart1 = px.scatter(df_sct_1, x=x_axis_val, y='GoodRatio', text='grSum', )
+            sct_chart1 = px.scatter(df_sct_1, x=x_val, y='GoodRatio', text='grSum', )
             sct_chart1.update_traces(textposition='top center', mode='markers+lines+text', texttemplate='%{y:,.1f} (%{text:,.0f})', )
+
             takeoff_chart_1 = sct_chart1
+
+            # Graph Comments 2--------------------------------------
+            df_grp = df.query(qry_board_date)
+            g_product = df_grp.query(qry_daterange_2)[unit_Analyze].sum()
+            g_good = df_grp.query(qry_daterange_1 + " and Evaluate in ['G','G2','G3']")[unit_Analyze].sum()
+            g_sort = df_grp.query(qry_daterange_1 + " and Evaluate in ['S',]")[unit_Analyze].sum()
+            g_ng = df_grp.query(qry_daterange_1 + " and Evaluate in ['NG',]")[unit_Analyze].sum()
+            g_x = df_grp.query(qry_daterange_1 + " and Evaluate in ['X',]")[unit_Analyze].sum()
+
+            g_ratio_good = 0
+            g_ratio_sort = 0
+            g_ratio_ng = 0
+            g_ratio_x = 0
+
+            if g_product > 0:
+                g_ratio_good = g_good / g_product
+                g_ratio_sort = g_sort / g_product
+                g_ratio_ng = g_ng / g_product
+                g_ratio_x = g_x / g_product
+
+            graph_comments_1 = "Products:  {:,.0f}".format(g_product)
+            graph_comments_2 = "Good:  {:,.0f} ({:0.0%})".format(g_good, g_ratio_good)
+            graph_comments_3 = "Sort:  {:,.0f} ({:0.0%})".format(g_sort, g_ratio_sort)
+            graph_comments_4 = "NG:  {:,.0f} ({:0.0%})".format(g_ng, g_ratio_ng)
+            graph_comments_5 = "CUT:  {:,.0f} ({:0.0%})".format(g_x, g_ratio_x)
+
 
         if select_graph=='Evaluation Status(Board Base)':
             graph_title = 'Evaluation Status(Board Base) '
-            x_axis_val = 'BoardName'
-            gr_by = ['BoardName', 'Evaluate']
-            select_groupby_val = gr_by
 
-            df_bar_1 = df_no_qry.query(qry_daterange).groupby(by=gr_by, as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum',})
-            bar_chart_1 = px.bar(df_bar_1, x=x_axis_val, y=unit_Analyze, color=gr_by[-1], text='Qty_pt', text_auto=True, barmode='group')
-            bar_chart_1.update_traces(texttemplate='%{y:,.0f} (%{text:,.0f})', )
+            selected_group_items = [Period, 'Evaluate', 'BoardName']
+            selected_xaxis_items = [Period, 'Evaluate', 'BoardName']
 
-            takeoff_chart_1 = bar_chart_1
+            if len(select_groupby) >= 1 and len(x_axis) >= 1 and filter_apply:
+                gr_by = select_groupby
+                x_val = x_axis
+            else:
+                gr_by = ['BoardName', 'Evaluate', ]
+                x_val = 'BoardName'
+
+            df_bar_1 = df_no_qry.query(qry_board_date).groupby(by=gr_by, as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum',})
+
+            if df_bar_1.empty:pass
+            else:
+                bar_chart_1 = px.bar(df_bar_1, x=x_val, y=unit_Analyze, color=gr_by[-1], text='Qty_pt', text_auto=True, barmode='group')
+                bar_chart_1.update_traces(texttemplate='%{y:,.0f} (%{text:,.0f})', )
+
+                takeoff_chart_1 = bar_chart_1
+
+                # Graph Comments 3--------------------------------------
+                df_grp = df.query(qry_board_date)
+                g_product = df_grp.query(qry_daterange_2)[unit_Analyze].sum()
+                g_good = df_grp.query(qry_daterange_1 + " and Evaluate in ['G','G2','G3']")[unit_Analyze].sum()
+                g_sort = df_grp.query(qry_daterange_1 + " and Evaluate in ['S',]")[unit_Analyze].sum()
+                g_ng = df_grp.query(qry_daterange_1 + " and Evaluate in ['NG',]")[unit_Analyze].sum()
+                g_x = df_grp.query(qry_daterange_1 + " and Evaluate in ['X',]")[unit_Analyze].sum()
+
+                g_ratio_good = 0
+                g_ratio_sort = 0
+                g_ratio_ng = 0
+                g_ratio_x = 0
+
+                if g_product > 0:
+                    g_ratio_good = g_good / g_product
+                    g_ratio_sort = g_sort / g_product
+                    g_ratio_ng = g_ng / g_product
+                    g_ratio_x = g_x / g_product
+
+                graph_comments_1 = "Products:  {:,.0f}".format(g_product)
+                graph_comments_2 = "Good:  {:,.0f} ({:0.0%})".format(g_good, g_ratio_good)
+                graph_comments_3 = "Sort:  {:,.0f} ({:0.0%})".format(g_sort, g_ratio_sort)
+                graph_comments_4 = "NG:  {:,.0f} ({:0.0%})".format(g_ng, g_ratio_ng)
+                graph_comments_5 = "CUT:  {:,.0f} ({:0.0%})".format(g_x, g_ratio_x)
 
         Evaluate_color = {'G': 'red', 'G2': 'cyan', 'G3': 'blue', 'S': 'green', 'X': 'gray', 'NG': 'purple'}
 
@@ -621,11 +738,14 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
                 return val
             df_no_qry['EV_point'] = df_no_qry.apply(f_ev_point, axis=1)
 
-            df_bar_2 = df_no_qry.query(qry_last_txt)[['Date2', 'BoardName', 'LotNo', 'Time2', 'Evaluate', 'Discription', 'Quantity', 'Qty_sqm', 'Qty_pcs', 'Qty_pt','EV_point']].sort_values(by=['LotNo'])
-            bar_chart_2 = px.scatter(df_bar_2, x='LotNo', y='EV_point', color='Evaluate', hover_data={'Time2', 'Discription'}, color_discrete_map=Evaluate_color)
-            bar_chart_2.update_traces(texttemplate='%{y:,.0f} ',)
+            df_bar_2 = df_no_qry.query(qry_board_date)[['Date2', 'BoardName', 'LotNo', 'Time2', 'Evaluate', 'Discription', 'Quantity', 'Qty_sqm', 'Qty_pcs', 'Qty_pt','EV_point']].sort_values(by=['LotNo'])
 
-            takeoff_chart_1 = bar_chart_2
+            if df_bar_2.empty: pass
+            else:
+                bar_chart_2 = px.scatter(df_bar_2, x='Time2', y='EV_point', color='Evaluate', hover_data={'Time2', 'Discription'}, color_discrete_map=Evaluate_color)
+                bar_chart_2.update_traces(texttemplate='%{y:,.0f} ',)
+
+                takeoff_chart_1 = bar_chart_2
 
         # Pivot Table -----
         if oneday_range: qry_pv = 'Date==@baseInventory_date'
@@ -645,7 +765,7 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
         aggrid_data = df_aggrid_1.to_dict('records')
 
 
-        return [select_groupby_list, select_boardname_list, x_axis_list,
+        return [select_groupby_list, board_List, x_axis_list,
                 basedate_result, daily_result_1, daily_result_2, daily_result_3, daily_result_4, daily_result_5, # 6
                 idc_daily_good_ratio, idc_daily_good_ratio_2, idc_daily_good_qty,
                 idc_daily_sort_ratio, idc_daily_sort_ratio_2, idc_daily_sort_qty,
@@ -655,7 +775,7 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
                 last_result, last_result_1, last_result_2, last_result_3, last_result_4, last_result_5, last_result_6, # 6
                 takeoff_chart_1, x_axis_val, select_groupby_val, graph_title,
                 data_pv1,aggrid_col, aggrid_data, pv1_vals,
-                graph_comments_1,graph_comments_2]
+                graph_comments_1, graph_comments_2, graph_comments_3, graph_comments_4, graph_comments_5]
 
     except Exception as e:
         alert(e)

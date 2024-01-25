@@ -139,7 +139,7 @@ qc_app2.layout = dmc.MantineProvider(
                                             # description="You can also provide a description",
                                             # minDate=date(2022, 1, 1),
                                             value=datetime.now().date(),
-                                            style={"width": 280},
+                                            style={"width": 250},
                                         ),
 
                                     ],
@@ -155,7 +155,7 @@ qc_app2.layout = dmc.MantineProvider(
                                             # minDate=date(2023, 1, 1),
                                             # value=[date(datetime.now().year,datetime.now().month,1), datetime.now().date()], # + timedelta(days=5)
                                             value=[date(datetime.now().date().year, datetime.now().date().month, 1), datetime.now().date()],  # + timedelta(days=5)
-                                            style={"width": 280},
+                                            style={"width": 250},
                                         ),
                                     ],
                                 ),
@@ -171,7 +171,7 @@ qc_app2.layout = dmc.MantineProvider(
                                             value="Daily",
                                             # label="Select your favorite framework/library",
                                             size='sm',
-                                            mt='xs', style={'width': 280},
+                                            mt='xs', style={'width': 250},
                                         ),
                                     ],
                                 ),
@@ -247,5 +247,6 @@ def display_content(pathname):
 
 if __name__ == '__main__':
     # app.run_server(debug=False, host='10.50.3.152', port=61024)
-    qc_app2.run_server(debug=True)
+    # qc_app2.run_server(debug=True)
     # qc_app2.run_server(debug=False, host='10.50.3.152', port=61024)
+    qc_app2.run_server(debug=False, host='10.50.3.116', port=50363)

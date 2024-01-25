@@ -237,6 +237,6 @@ def display_content(pathname):
 
 
 if __name__ == '__main__':
-    # app.run_server(debug=False, host='10.50.3.152', port=61024)
-    # qc_app2.run_server(debug=True)
     qc_app.run_server(debug=False, host='10.50.3.152', port=61024)
+    # qc_app.run_server(debug=True)
+    # qc_app.run_server(debug=False, host='10.50.3.116', port=50363)
