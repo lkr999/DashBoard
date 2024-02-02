@@ -12,7 +12,6 @@ import pandas as pd
 import pymysql
 import mariadb
 import dash_pivottable
-import mysql.connector
 import datetime
 
 import plotly.graph_objects as go
@@ -72,11 +71,13 @@ def df_download():
 
 from DashBoard.QC_local.app import qc_app2
 layout = dmc.MantineProvider(
-    id = 'dark_moder_quality', #theme={"colorScheme": "white"},
-
+    id = 'dark_moder_quality',
+    theme={"colorScheme": "dark"},
+    inherit=True,
+    withNormalizeCSS=True,
     withGlobalStyles=True,
     children=[
-        dmc.Title(children = 'Board Quality', order = 1, style = {'font-family':'IntegralCF-ExtraBold', 'text-align':'left', 'color' :'slategray', 'font-size':20}),
+        dmc.Title(children = 'Board Quality', order = 1, color='green',  style = {'font-family':'IntegralCF-ExtraBold', 'text-align':'left','font-size':20}),
 
         dmc.Divider(label='',size='xl', style={"marginBottom": 5, "marginTop": 5}),
         dmc.Group(
@@ -162,17 +163,16 @@ layout = dmc.MantineProvider(
 )
 
 @qc_app2.callback(
-
-    Output('graph_title_bq','children'),
+    [Output('graph_title_bq','children'),
     Output('graph_1','figure'),
     Output('select_tob','data'),
     Output('select_property','data'),
     Output('select_class','data'),
     Output('graph_detail','value'),
     Output('regression_items_x','data'),
-    Output('regression_items_y','data'),
+    Output('regression_items_y','data'),],
 
-    Input('date_range', 'value'),
+    [Input('date_range', 'value'),
     Input('baseInventory_date', 'value'),
     Input('radio_period', 'value'),
     Input('level_checkList', 'value'),
@@ -187,7 +187,7 @@ layout = dmc.MantineProvider(
     Input('regression_items_x','value'),
     Input('regression_items_y','value'),
 
-    Input('url', 'pathname'),
+    Input('url', 'pathname'),]
 )
 def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkList,unit_Analyze,oneday_range,
                        select_graph, refresh, select_property, select_tob,select_class,regression_items_x, regression_items_y,
@@ -305,7 +305,7 @@ def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkLis
                 model = ols(ols_txt, data=df_chart1).fit()
                 table_type_1 = sm.stats.anova_lm(model, typ=1)
 
-                graph_detail = "# OLS Analyze Result --------------------------------------------------- \n \n " + str(table_type_1)
+                graph_detail = "# OLS Analyze Result --------------------------------------------------- \n \n " + str(table_type_1) + "\n\n === Data Description === " + "\n\n" + str(data_1.describe())
 
         if select_graph=='Class Base Analyze(Box Chart)':
             qry_chart = "Class_1 in @select_class"
@@ -386,7 +386,15 @@ def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkLis
                 # chart_1.add_vline(x=spec_max[0], line_width=3, line_dash="dash", line_color="red", name='upper Limit')
 
                 graph_detail = select_property + " of Ppk: " + "{:,.4f} \n \n ==> Defect ratio: {:,.0f} ppm".format(Cpk, ppm) \
-                    + ""
+                    + "\n\n === Data Description === " + "\n\n" + str(df_cpk[select_property].describe())
+
+        # Graph Color Change ---
+        chart_1.layout.plot_bgcolor = '#ddd'
+        chart_1.layout.paper_bgcolor = '#999'
+        chart_1.update_xaxes(title_font_color='white', color='white')
+        chart_1.update_yaxes(title_font_color='white', color='white')
+        chart_1.layout.legend.bgcolor = 'white'
+
         return [select_graph, chart_1, list_TOB, list_Property, list_Class, graph_detail, list_Property, list_Property]
 
     except Exception as e:

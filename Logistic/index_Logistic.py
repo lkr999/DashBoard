@@ -7,10 +7,10 @@ import plotly.graph_objects as go
 from datetime import datetime, time, timedelta
 from datetime import date
 
-from DashBoard.Logistic.app import logistic_app
+from DashBoard.Logistic.app_logistic import app_logistic
 import pages
 
-server = logistic_app.server
+server = app_logistic.server
 
 def create_main_nav_link(icon, label, href):
     return dcc.Link(
@@ -60,7 +60,7 @@ def create_accordianitem(icon, label, href):
 Period_radio_data = ['Daily', 'Weekly', 'Monthly', 'Quarterly','Yearly']
 Unit_radio_data = ['Qty_sqm', 'Qty_pcs', 'Qty_pt']
 
-logistic_app.layout = dmc.MantineProvider(
+app_logistic.layout = dmc.MantineProvider(
     id = 'dark-moder',
     withGlobalStyles=False,
     children = [
@@ -69,7 +69,6 @@ logistic_app.layout = dmc.MantineProvider(
         # dmc.Divider(label = 'Overview',  labelPosition='center', size='xl'),
         html.Div(
             children = [
-
                 dmc.Navbar(
                     fixed=True, top=50,
                     width={"base": 300},
@@ -97,12 +96,12 @@ logistic_app.layout = dmc.MantineProvider(
                                         create_main_nav_link(
                                             icon="icon-park:ad-product",
                                             label="Board Status",
-                                            href=logistic_app.get_relative_path("/"),
+                                            href=app_logistic.get_relative_path("/"),
                                         ),
                                         create_main_nav_link(
                                             icon="carbon:accessibility-alt",
                                             label="Material Status",
-                                            href=logistic_app.get_relative_path("/Material_Status"),
+                                            href=app_logistic.get_relative_path("/Material_Status"),
                                         ),
 
                                     ],
@@ -216,12 +215,12 @@ logistic_app.layout = dmc.MantineProvider(
         )
     ]
 )
-@logistic_app.callback(
+@app_logistic.callback(
     Output('content', 'children'),
     Input('url', 'pathname'),
 )
 def display_update(pathname):
-    page_name = logistic_app.strip_relative_path(pathname)
+    page_name = app_logistic.strip_relative_path(pathname)
     print('CHK ok:', pathname, page_name)
     if not page_name:  # None or ''
         return pages.Board_Status.layout
@@ -232,4 +231,4 @@ def display_update(pathname):
 
 if __name__ == '__main__':
     # logistic_app.run_server(debug=True)
-    logistic_app.run_server(debug=False, host='10.50.3.152', port=56032)
+    app_logistic.run_server(debug=False, host='10.50.3.152', port=56032)

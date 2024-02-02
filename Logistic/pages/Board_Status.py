@@ -9,7 +9,6 @@ import pandas as pd
 import pymysql
 import mariadb
 import dash_pivottable
-import mysql.connector
 import datetime
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
@@ -21,24 +20,57 @@ from dash import Dash, Input, Output, ctx, dcc, html, dash_table
 from sqlalchemy import create_engine
 from pymsgbox import alert, confirm, password, prompt
 
-HOST     = '10.50.3.163'
+HOST     = '10.50.3.163:3306'
 DB       = 'gfactoryDB'
 USER = 'leekr'
 PASSWORD = 'g1234'
 
-try:
-    # self.conn = pymysql.connect(host='192.168.1.95', user=USER, password=PASSWORD, db='zeitgypsumdb', charset='utf8')
-    pymysql.install_as_MySQLdb()
-    engine = create_engine("mysql://{user}:{password}@{host}/{db}".format(user=USER, password=PASSWORD, host=HOST, db=DB))
-    # conn = mysql.connector.connect(**config)
-    conn = pymysql.connect(host=HOST, user=USER, password=PASSWORD, db=DB, charset='utf8')
-    cur = conn.cursor()
+def db_conn():
+    try:
+        # self.conn = pymysql.connect(host='192.168.1.95', user=USER, password=PASSWORD, db='zeitgypsumdb', charset='utf8')
+        pymysql.install_as_MySQLdb()
+        engine = create_engine("mysql://{user}:{password}@{host}/{db}".format(user=USER, password=PASSWORD, host=HOST, db=DB))
+        # conn = mysql.connector.connect(**config)
+        conn = pymysql.connect(host=HOST, user=USER, password=PASSWORD, db=DB, charset='utf8')
+        cur = conn.cursor()
+
+        # Board DB Download ----------------
+        df_BI = pd.read_sql("select * from 900_BaseInventory_Board;", con=engine)  # Board Inventory DB
+        df_Input = pd.read_sql("select * from 900_Logistic_Input_Board;", con=engine)  # Board Inventory DB
+        df_Output = pd.read_sql("select * from 900_Logistic_Output_Board;", con=engine)  # Board Inventory DB
+        # df_Input['Date'] = pd.to_datetime(df_Input['Date'])
+        # df_Output['Date'] = pd.to_datetime(df_Output['Date'])
+
+        df_Input_BI = df_Input.merge(df_BI, how='left', left_on='CodeTOB', right_on='BoardCode')
+        df_Input_BI['Invt_in_pcs'] = df_Input_BI['BoardStockBase'] + df_Input_BI['Qty_pcs']
+        df_Input_BI['Invt_in_sqm'] = df_Input_BI['Invt_in_pcs'] * df_Input_BI['PcsArea']
+        df_Input_BI['Invt_in_pt'] = df_Input_BI['Invt_in_pcs'] / df_Input_BI['spp_x']
+
+        df_Output_BI = df_Output.merge(df_BI, how='left', left_on='CodeTOB', right_on='BoardCode')
+        df_Output_BI['Invt_out_pcs'] = df_Output_BI['BoardStockBase'] + df_Output_BI['Qty_pcs']
+        df_Output_BI['Invt_out_sqm'] = df_Output_BI['Invt_out_pcs'] * df_Output_BI['PcsArea']
+        df_Output_BI['Invt_out_pt'] = df_Output_BI['Invt_out_pcs'] / df_Output_BI['spp_x']
+
+        df_Input_BI['Date2'] = pd.to_datetime(df_Input_BI['Date'])
+        df_Input_BI['Month'] = df_Input_BI['Date2'].apply(lambda x: x.month)
+        df_Input_BI['WeekOfYear'] = df_Input_BI['Date2'].apply(lambda x: x.isocalendar().week)
+        df_Input_BI['Quarter'] = df_Input_BI['Date2'].apply(lambda x: x.quarter)
+        df_Input_BI['Year'] = df_Input_BI['Date2'].apply(lambda x: x.year)
+
+        df_Output_BI['Date2'] = pd.to_datetime(df_Output_BI['Date'])
+        df_Output_BI['Month'] = df_Output_BI['Date2'].apply(lambda x: x.month)
+        df_Output_BI['WeekOfYear'] = df_Output_BI['Date2'].apply(lambda x: x.isocalendar().week)
+        df_Output_BI['Quarter'] = df_Output_BI['Date2'].apply(lambda x: x.quarter)
+        df_Output_BI['Year'] = df_Output_BI['Date2'].apply(lambda x: x.year)
+
+        conn.close()
+
+        return [df_BI, df_Input, df_Output, df_Input_BI, df_Output_BI]
+
+    except mariadb.Error as e: alert(e)
 
 
-except mariadb.Error as e: alert(e)
-
-
-from DashBoard.Logistic.app import logistic_app
+from DashBoard.Logistic.app_logistic import app_logistic
 
 layout = dmc.MantineProvider(
     id = 'dark_moder',
@@ -170,9 +202,9 @@ layout = dmc.MantineProvider(
     ]
 )
 
-@logistic_app.callback(
+@app_logistic.callback(
     # Board Inventory ---
-    Output('indi_1', 'figure'),
+    [Output('indi_1', 'figure'),
     Output('market_korea', 'children'),
     Output('market_vietnam', 'children'),
     Output('update_date', 'children'),
@@ -193,10 +225,10 @@ layout = dmc.MantineProvider(
     Output('graph_comments_1', 'children'),
     Output('graph_comments_2', 'children'),
     Output('graph_comments_3', 'children'),
-    Output('graph_comments_4', 'children'),
+    Output('graph_comments_4', 'children'),],
 
     # Board Inventory ---
-    Input('refresh', 'n_clicks'),
+    [Input('refresh', 'n_clicks'),
     Input('date_range', 'value'),
     Input('baseInventory_date', 'value'),
     Input('radio_period', 'value'),
@@ -211,7 +243,7 @@ layout = dmc.MantineProvider(
     Input('oneday_range', 'checked'),
     Input('filter_apply', 'checked'),
 
-    Input('url', 'pathname'),
+    Input('url', 'pathname'),],
 )
 def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_checkList, unit_Analyze,
                 select_graph, select_boardname, select_groupby, x_axis, data_copy, oneday_range, checked,
@@ -232,33 +264,8 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         val_BoardLevel = level_checkList
 
         # Board DB Download ----------------
-        df_BI = pd.read_sql("select * from 900_BaseInventory_Board;", con=engine)  # Board Inventory DB
-        df_Input  = pd.read_sql("select * from 900_Logistic_Input_Board;", con=engine)  # Board Inventory DB
-        df_Output = pd.read_sql("select * from 900_Logistic_Output_Board;", con=engine)  # Board Inventory DB
-        # df_Input['Date'] = pd.to_datetime(df_Input['Date'])
-        # df_Output['Date'] = pd.to_datetime(df_Output['Date'])
-
-        df_Input_BI = df_Input.merge(df_BI, how='left', left_on='CodeTOB', right_on='BoardCode')
-        df_Input_BI['Invt_in_pcs'] = df_Input_BI['BoardStockBase'] + df_Input_BI['Qty_pcs']
-        df_Input_BI['Invt_in_sqm'] = df_Input_BI['Invt_in_pcs'] * df_Input_BI['PcsArea']
-        df_Input_BI['Invt_in_pt'] = df_Input_BI['Invt_in_pcs'] / df_Input_BI['spp_x']
-
-        df_Output_BI = df_Output.merge(df_BI, how='left', left_on='CodeTOB', right_on='BoardCode')
-        df_Output_BI['Invt_out_pcs'] = df_Output_BI['BoardStockBase'] + df_Output_BI['Qty_pcs']
-        df_Output_BI['Invt_out_sqm'] = df_Output_BI['Invt_out_pcs'] * df_Output_BI['PcsArea']
-        df_Output_BI['Invt_out_pt'] = df_Output_BI['Invt_out_pcs'] / df_Output_BI['spp_x']
-
-        df_Input_BI['Date2'] = pd.to_datetime(df_Input_BI['Date'])
-        df_Input_BI['Month'] = df_Input_BI['Date2'].apply(lambda x: x.month)
-        df_Input_BI['WeekOfYear'] = df_Input_BI['Date2'].apply(lambda x: x.isocalendar().week)
-        df_Input_BI['Quarter'] = df_Input_BI['Date2'].apply(lambda x: x.quarter)
-        df_Input_BI['Year'] = df_Input_BI['Date2'].apply(lambda x: x.year)
-
-        df_Output_BI['Date2'] = pd.to_datetime(df_Output_BI['Date'])
-        df_Output_BI['Month'] = df_Output_BI['Date2'].apply(lambda x: x.month)
-        df_Output_BI['WeekOfYear'] = df_Output_BI['Date2'].apply(lambda x: x.isocalendar().week)
-        df_Output_BI['Quarter'] = df_Output_BI['Date2'].apply(lambda x: x.quarter)
-        df_Output_BI['Year'] = df_Output_BI['Date2'].apply(lambda x: x.year)
+        df_BI, df_Input, df_Output, df_Input_BI, df_Output_BI = db_conn()
+        print(df_Output_BI)
 
         # Clipboard df ----
         df_clipbaord = ''
@@ -563,7 +570,7 @@ def BoardStatus(refresh, date_range, baseInventory_date, radio_period, level_che
         mismatch_out = df_Output_BI[df_Output_BI['BoardCode'].isna()]['BoardName_x']
         mismatch_in = df_Input_BI[df_Input_BI['BoardCode'].isna()]['BoardName_x']
         #
-        print(mismatch_out.unique())
+        print(mismatch_out.unyique())
         print(mismatch_in.unique())
 
         return [idc_TotalInventory, market_korea_txt, market_vietnam_txt, update_date,

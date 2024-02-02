@@ -12,7 +12,6 @@ import pandas as pd
 import pymysql
 import mariadb
 import dash_pivottable
-import mysql.connector
 import datetime
 
 import plotly.graph_objects as go
@@ -72,107 +71,13 @@ def df_download():
 
 from DashBoard.QC.app import qc_app
 layout = dmc.MantineProvider(
-    id = 'dark_moder_quality', #theme={"colorScheme": "white"},
-
+    id = 'dark_moder_quality',
+    theme={"colorScheme": "dark"},
+    inherit=True,
+    withNormalizeCSS=True,
     withGlobalStyles=True,
     children=[
-        dmc.Title(children = 'Board Quality', order = 1, style = {'font-family':'IntegralCF-ExtraBold', 'text-align':'left', 'color' :'slategray', 'font-size':20}),
-        # dmc.Divider(label = 'Overview',  labelPosition='center', size='xl'),
-
-        # Indicater Overview -----
-        # dmc.Group(
-        #     display ='column',
-        #     grow=False,
-        #     children=[
-        #         # dmc.Space(),
-        #         # dcc.Graph(id="qindi_1",style={'width':200, 'height': 100}),
-        #
-        #         dmc.Paper(
-        #             radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':300,'height': 200},
-        #
-        #             children = [
-        #                 dmc.Text(id='basedate_result', size='xl', color='red', align='center', style={'font-family': 'IntegralCF-RegularOblique'}),
-        #                 dmc.Divider(labelPosition='center', size='xl'),
-        #                 dmc.Text(id='total_product', size=20, color='blue', align='right', ),
-        #                 dmc.Divider(labelPosition='left', size='xs'),
-        #                 dmc.Text(id='good_product_daily', size=15, color='black', align='right', ),
-        #                 dmc.Text(id='sort_product_daily', size=15, color='black', align='right', ),
-        #                 dmc.Text(id='ng_product_daily', size=15, color='red', align='right', ),
-        #                 dmc.Text(id='x_product_daily', size=15, color='green', align='right', ),
-        #             ]
-        #         ),
-        #
-        #         dmc.Paper(
-        #             radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':300,'height': 200, },
-        #
-        #             children = [
-        #                 dmc.Text(id='monthly_result', size='xl', color='dimmed', align='center', style={'font-family': 'IntegralCF-RegularOblique'}),
-        #                 dmc.Divider(labelPosition='center', size='xl'),
-        #                 dmc.Text(id='product_monthly', size=20, color='blue', align='right', ),
-        #                 dmc.Divider(labelPosition='left', size='xs'),
-        #                 dmc.Text(id='good_product_monthly', size=15, color='black', align='right', ),
-        #                 dmc.Text(id='sort_product_monthly', size=15, color='black', align='right', ),
-        #                 dmc.Text(id='ng_product_monthly', size=15, color='red', align='right', ),
-        #                 dmc.Text(id='x_product_monthly', size=15, color='green', align='right', ),
-        #             ]
-        #         ),
-        #
-        #         dmc.Paper(
-        #             radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':300,'height': 200, },
-        #
-        #             children = [
-        #                 dmc.Text(id='weekly_result', size='xl', color='dimmed', align='center', style={'font-family': 'IntegralCF-RegularOblique'}),
-        #                 dmc.Divider(labelPosition='center', size='xl'),
-        #                 dmc.Text(id='product_weekly', size=20, color='blue', align='right', ),
-        #                 dmc.Divider(labelPosition='left', size='xs'),
-        #                 dmc.Text(id='good_product_weekly', size=15, color='black', align='right', ),
-        #                 dmc.Text(id='sort_product_weekly', size=15, color='black', align='right', ),
-        #                 dmc.Text(id='ng_product_weekly', size=15, color='red', align='right', ),
-        #                 dmc.Text(id='x_product_weekly', size=15, color='green', align='right', ),
-        #             ]
-        #         ),
-        #
-        #         dmc.Paper(
-        #             radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':300,'height': 200, },
-        #
-        #             children = [
-        #                 dmc.Text(id='last_product_name', size='xl', color='dimmed', align='center', style={'font-family': 'IntegralCF-RegularOblique'}),
-        #                 dmc.Divider(labelPosition='center', size='xl'),
-        #                 dmc.Text(id='product_last', size=20, color='blue', align='right', ),
-        #                 dmc.Divider(labelPosition='left', size='xs'),
-        #                 dmc.Text(id='good_product_last', size=15, color='black', align='right', ),
-        #                 dmc.Text(id='sort_product_last', size=15, color='black', align='right', ),
-        #                 dmc.Text(id='ng_product_last', size=15, color='red', align='right', ),
-        #                 dmc.Text(id='x_product_last', size=15, color='green', align='right', ),
-        #             ]
-        #         ),
-        #
-        #
-        #         dmc.Paper(
-        #             radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':250,'height': 200},
-        #             children = [
-        #                 dmc.Text('Good Ratio', size='xs', color='dimmed', style={'font-family': 'IntegralCF-RegularOblique'}),
-        #                 dmc.Divider(labelPosition='center', size='xl'),
-        #                 dmc.Progress(id='good_daily_ratio',value=0, label="0%", size=18, color='red'),
-        #                 dmc.Text(id='good_daily_qty', size='xs', color='red',),
-        #
-        #                 dmc.Space(h=0),
-        #                 dmc.Text('Sort Ratio', size='xs', color='dimmed', style={'font-family': 'IntegralCF-RegularOblique'}),
-        #                 dmc.Divider(labelPosition='center', size='xl'),
-        #                 dmc.Progress(id='sort_daily_ratio',value=0, label="0%", size=18, color='green'),
-        #                 dmc.Text(id='sort_daily_qty', size='xs', color='green',),
-        #
-        #                 dmc.Space(h=0),
-        #                 dmc.Text('NG Ratio', size='xs', color='dimmed', style={'font-family': 'IntegralCF-RegularOblique'}),
-        #                 dmc.Divider(labelPosition='center', size='xl'),
-        #                 dmc.Progress(id='ng_daily_ratio',value=0, label="0%", size=18, color='blue'),
-        #                 dmc.Text(id='ng_daily_qty', size='xs', color='blue',),
-        #             ]
-        #         ),
-        #     ]
-        # ),
-
-        # Graphs -----
+        dmc.Title(children = 'Board Quality', order = 1, color='green',  style = {'font-family':'IntegralCF-ExtraBold', 'text-align':'left','font-size':20}),
 
         dmc.Divider(label='',size='xl', style={"marginBottom": 5, "marginTop": 5}),
         dmc.Group(
@@ -244,10 +149,6 @@ layout = dmc.MantineProvider(
                         dcc.Graph(id='graph_1', style={'width':1550, 'height':600 } ),
                         dmc.Divider(label='Graph Detail',labelPosition='left', size='xs', color='blue'),
 
-                        # dmc.Container(id='graph_detail', size="xs", px="xs",
-                        #               style={"height": 300, 'width':1500,
-                        #                      "marginTop": 5,"marginBottom": 5, 'align': 'left'},
-                        #               ),
                         dcc.Textarea(
                                 id='graph_detail',
                                 value='Textarea content initialized\nwith multiple lines of text',
@@ -258,58 +159,20 @@ layout = dmc.MantineProvider(
 
             ]
         ),
-
-        # Tables ----
-        # dmc.Divider(label='Tables',size='xl', style={"marginBottom": 20, "marginTop": 15}),
-        # dmc.Group(
-        #     display='column',
-        #     grow=False,
-        #     children=[
-        #         #AgGrid --
-        #         dmc.Paper(
-        #             radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':1550,'height': 450},
-        #             children = [
-        #                 dag.AgGrid(
-        #                     id="aggrid_1",
-        #                     defaultColDef={"resizable": True, "sortable": True, "filter": True},
-        #                     dashGridOptions={"rowHeight": 30},
-        #                     style={'height': 400},
-        #                     columnSize='sizeToFit',
-        #                     columnSizeOptions={"skipHeader": True},
-        #                 )
-        #             ]
-        #         ),
-        #         #Pivot ---
-        #         dmc.Paper(
-        #             radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':1550,'height': 600},
-        #             children = [
-        #                 dash_pivottable.PivotTable(
-        #                     id='table_pv1',
-        #                     cols=['Evaluate'],
-        #                     rows=['Date2', 'BoardName'],
-        #                     vals=['Qty_pt'],
-        #                     aggregatorName='Sum',
-        #                 ),
-        #             ]
-        #         ),
-        #
-        #     ]
-        # ),
     ]
 )
 
 @qc_app.callback(
-
-    Output('graph_title_bq','children'),
+    [Output('graph_title_bq','children'),
     Output('graph_1','figure'),
     Output('select_tob','data'),
     Output('select_property','data'),
     Output('select_class','data'),
     Output('graph_detail','value'),
     Output('regression_items_x','data'),
-    Output('regression_items_y','data'),
+    Output('regression_items_y','data'),],
 
-    Input('date_range', 'value'),
+    [Input('date_range', 'value'),
     Input('baseInventory_date', 'value'),
     Input('radio_period', 'value'),
     Input('level_checkList', 'value'),
@@ -324,7 +187,7 @@ layout = dmc.MantineProvider(
     Input('regression_items_x','value'),
     Input('regression_items_y','value'),
 
-    Input('url', 'pathname'),
+    Input('url', 'pathname'),]
 )
 def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkList,unit_Analyze,oneday_range,
                        select_graph, refresh, select_property, select_tob,select_class,regression_items_x, regression_items_y,
@@ -442,7 +305,7 @@ def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkLis
                 model = ols(ols_txt, data=df_chart1).fit()
                 table_type_1 = sm.stats.anova_lm(model, typ=1)
 
-                graph_detail = "# OLS Analyze Result --------------------------------------------------- \n \n " + str(table_type_1)
+                graph_detail = "# OLS Analyze Result --------------------------------------------------- \n \n " + str(table_type_1) + "\n\n === Data Description === " + "\n\n" + str(data_1.describe())
 
         if select_graph=='Class Base Analyze(Box Chart)':
             qry_chart = "Class_1 in @select_class"
@@ -523,7 +386,15 @@ def BoardQualityUpdate(date_range,baseInventory_date,radio_period,level_checkLis
                 # chart_1.add_vline(x=spec_max[0], line_width=3, line_dash="dash", line_color="red", name='upper Limit')
 
                 graph_detail = select_property + " of Ppk: " + "{:,.4f} \n \n ==> Defect ratio: {:,.0f} ppm".format(Cpk, ppm) \
-                    + ""
+                    + "\n\n === Data Description === " + "\n\n" + str(df_cpk[select_property].describe())
+
+        # Graph Color Change ---
+        chart_1.layout.plot_bgcolor = '#ddd'
+        chart_1.layout.paper_bgcolor = '#999'
+        chart_1.update_xaxes(title_font_color='white', color='white')
+        chart_1.update_yaxes(title_font_color='white', color='white')
+        chart_1.layout.legend.bgcolor = 'white'
+
         return [select_graph, chart_1, list_TOB, list_Property, list_Class, graph_detail, list_Property, list_Property]
 
     except Exception as e:

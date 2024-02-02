@@ -1,8 +1,9 @@
+import colorsys
+
 import dash
 from dash import Input, Output, State, html, dcc, dash_table, MATCH, ALL, ctx
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, time, timedelta
 from datetime import date
@@ -29,9 +30,9 @@ def create_main_nav_link(icon, label, href):
                     radius=5,
                     color='indigo',
                     variant="filled",
-                    style={'margin-left':10}
+                    style={'margin-left':10,}
                 ),
-                dmc.Text(label, size="sm", color="gray", style={'font-family':'IntegralCF-Regular'}),
+                dmc.Text(label, size="sm", color="white", style={'font-family':'IntegralCF-Regular'}),
             ]
         ),
         href=href,
@@ -53,7 +54,7 @@ def create_accordianitem(icon, label, href):
                     color='indigo',
                     variant="light",
                 ),
-                dmc.Text(label, size="sm", color="gray", style={'font-family':'IntegralCF-Regular'}),
+                dmc.Text(label, size="sm", color="white", style={'font-family':'IntegralCF-Regular'}),
             ]
         ),
         href=href,
@@ -63,12 +64,17 @@ def create_accordianitem(icon, label, href):
 Period_radio_data = ['Daily', 'Weekly', 'Monthly', 'Quarterly']
 Unit_radio_data = ['Qty_sqm','Qty_pcs','Qty_pt']
 
+
+#analytics = dash_user_analytics.DashUserAnalytics(app, automatic_routing=False)
 qc_app.layout = dmc.MantineProvider(
     id = 'dark-moder2',
-    withGlobalStyles=False,
+    theme={"colorScheme": "dark"},
+    inherit=True,
+    withNormalizeCSS=True,
+    withGlobalStyles=True,
     children = [
 
-        dmc.Title(children='G Factory QC', order=1, style={'font-family': 'IntegralCF-ExtraBold', 'text-align': 'center', 'color': 'slategray', 'background-color': 'skyblue'}),
+        dmc.Title(children='G Factory Dash Board', order=1, style={'font-family': 'IntegralCF-ExtraBold', 'text-align': 'center', 'color': 'black', 'background-color': 'skyblue'}),
         html.Div(
             children = [
 
@@ -89,7 +95,9 @@ qc_app.layout = dmc.MantineProvider(
                             offsetScrollbars=True,
                             type="scroll",
                             children=[
-                                dmc.Divider(label='Exploration', style={"marginBottom": 20, "marginTop": 5}),
+
+                                #html.Img(src='https://plotly.chiefs.work/ticketing/assets/SA.svg', id  = 'sa-logo', style={'width':160, 'margin-left':50}),
+                                dmc.Divider(label='Exploration', style={"marginBottom": 10, "marginTop": 10, "color":'orange'}),
                                 dmc.Group(
                                     display="column",
                                     children=[
@@ -100,6 +108,8 @@ qc_app.layout = dmc.MantineProvider(
                                             leftIcon=DashIconify(icon="material-symbols:refresh"),
                                             style={"width": 250, "marginBottom": 10, "marginTop": 10},
                                         ),
+                                        dmc.Divider(label='QC Page',size=5,color='orange', variant='solid', style={'width':250,"marginBottom": 5, "marginTop": 5, "color": 'orange'}),
+
                                         create_main_nav_link(
                                             icon="carbon:inspection",
                                             label="Takeoff Inspection Status",
@@ -110,11 +120,18 @@ qc_app.layout = dmc.MantineProvider(
                                             label="Board Quality",
                                             href=qc_app.get_relative_path("/qc_property"),
                                         ),
+
+                                        dmc.Divider(label='Logistic Page',color='orange', size=5, variant='solid', style={'width':250, "marginBottom": 5, "marginTop": 5}),
+                                        create_main_nav_link(
+                                            icon="bi:dash",
+                                            label="Board Inventory Status",
+                                            href=qc_app.get_relative_path("/board_status"),
+                                        ),
                                     ],
                                 ),
 
                                 #Base Date of Inventory ----
-                                dmc.Divider(label='Base Date', style={"marginBottom": 10, "marginTop": 20}),
+                                dmc.Divider(label='Base Date',labelPosition='center' ,color='white',size=5, style={"marginBottom": 10, "marginTop": 20}),
                                 dmc.Group(
                                     display="column",
                                     children=[
@@ -128,33 +145,33 @@ qc_app.layout = dmc.MantineProvider(
                                             id="baseInventory_date",
                                             # label="Start Date",
                                             # description="You can also provide a description",
-                                            minDate=date(2000, 1, 1),
+                                            # minDate=date(2022, 1, 1),
                                             value=datetime.now().date(),
                                             style={"width": 250},
                                         ),
+
                                     ],
                                 ),
 
-                                #Date Range ----
-                                dmc.Divider(label='Date Range', style={"marginBottom": 10, "marginTop": 20}),
+                                # Date Range ----
+                                dmc.Divider(label='Date Range',labelPosition='center' ,color='white',size=5, style={"marginBottom": 10, "marginTop": 20}),
                                 dmc.Group(
                                     display="column",
                                     children=[
                                         dmc.DateRangePicker(
                                             id="date_range",
-                                            minDate=date(2000, 1, 1),
-                                            value=[date(datetime.now().year,datetime.now().month,1), datetime.now().date()], # + timedelta(days=5)
+                                            # minDate=date(2023, 1, 1),
+                                            # value=[date(datetime.now().year,datetime.now().month,1), datetime.now().date()], # + timedelta(days=5)
+                                            value=[date(datetime.now().date().year, datetime.now().date().month, 1), datetime.now().date()],  # + timedelta(days=5)
                                             style={"width": 250},
                                         ),
                                     ],
                                 ),
 
-
-
                                 #Period ----
-                                dmc.Divider(label='Period Select', style={"marginBottom": 0, "marginTop": 20}),
+                                dmc.Divider(label='Period Select',labelPosition='center' ,color='white',size=5, style={"marginBottom": 0, "marginTop": 20}),
                                 dmc.Group(
-                                    # display="column",
+                                    display="column",
                                     children=[
                                         dmc.RadioGroup(
                                             [dmc.Radio(k,value=k) for k in Period_radio_data],
@@ -162,19 +179,19 @@ qc_app.layout = dmc.MantineProvider(
                                             value="Daily",
                                             # label="Select your favorite framework/library",
                                             size='sm',
-                                            mt='xs', style={'width': 280},
+                                            mt='xs', style={'width': 250},
                                         ),
                                     ],
                                 ),
 
                                 #Board Level Select ----
-                                dmc.Divider(label='Evaluate Select', style={"marginBottom": 10, "marginTop": 30}),
+                                dmc.Divider(label='Evaluate Select',labelPosition='center' ,color='white',size=5, style={"marginBottom": 10, "marginTop": 30}),
                                 dmc.Group(
                                     display="column",
                                     children=[
                                         dmc.ChipGroup(
                                             [dmc.Chip(x, value=x, variant="outline",) for x in ['G','G2','G3','S','NG','X']],
-                                            id="level_checkList",
+                                            id="chip_evaluate",
                                             value=['G','G2','G3','S','NG','X'],
                                             multiple=True, mb=10,
                                         ),
@@ -182,7 +199,7 @@ qc_app.layout = dmc.MantineProvider(
                                 ),
 
                                 #Board Units ----
-                                dmc.Divider(label='Units of Board', style={"marginBottom": 0, "marginTop": 20}),
+                                dmc.Divider(label='Units of Board',labelPosition='center' ,color='white',size=5, style={"marginBottom": 0, "marginTop": 20}),
                                 dmc.Group(
                                     display="column",
                                     children=[
@@ -194,6 +211,19 @@ qc_app.layout = dmc.MantineProvider(
                                             size='xs',
                                             mt='xs', style={"width": 280, "marginBottom": 10},
 
+                                        ),
+                                    ],
+                                ),
+
+                                #Board Level ----
+                                dmc.Divider(label='Board Level',labelPosition='center' ,color='white',size=5, style={"marginBottom": 0, "marginTop": 20}),
+                                dmc.Group(
+                                    children=[
+                                        dmc.ChipGroup(
+                                            [dmc.Chip(x, value=x, variant="outline", ) for x in ['LV_1', 'LV_2', 'LV_3', 'Cut']],
+                                            id="level_checkList",
+                                            value=['LV_1', 'LV_2', 'LV_3', 'Cut'],
+                                            multiple=True, mb=10,
                                         ),
                                     ],
                                 ),
@@ -221,8 +251,6 @@ qc_app.layout = dmc.MantineProvider(
     ]
 )
 
-#analytics = dash_user_analytics.DashUserAnalytics(app, automatic_routing=False)
-
 @qc_app.callback(Output('content', 'children'),
                 [Input('url', 'pathname')])
 def display_content(pathname):
@@ -233,10 +261,11 @@ def display_content(pathname):
         return pages.qc_takeoff.layout
     elif pathname=='/qc_takeoff/qc_property':
         return pages.qc_property.layout
+    # elif pathname=='/qc_takeoff/board_status':
+    #     return pages.board_status.layout
     else: return pages.qc_takeoff.layout
 
 
 if __name__ == '__main__':
-    qc_app.run_server(debug=False, host='10.50.3.152', port=61024)
     # qc_app.run_server(debug=True)
-    # qc_app.run_server(debug=False, host='10.50.3.116', port=50363)
+    qc_app.run_server(debug=False, host='10.50.3.152', port=61024)

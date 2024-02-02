@@ -6,14 +6,12 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, time, timedelta
 from datetime import date
-import time as time_pck
-import os
-import dash_daq as daq
 
-from DashBoard.Logistic.app import logistic_app
+# from DashBoard.Logistic.app_logistic import app_logistic
+from DashBoard.Logistic.app_logistic_tmp import app_logistic
 import pages
 
-server = logistic_app.server
+server = app_logistic.server
 
 def create_main_nav_link(icon, label, href):
     return dcc.Link(
@@ -60,30 +58,18 @@ def create_accordianitem(icon, label, href):
         style={"textDecoration": "none"},
     )
 
-
-Period_radio_data = ['Daily', 'Weekly', 'Monthly', 'Quarterly']
+Period_radio_data = ['Daily', 'Weekly', 'Monthly', 'Quarterly','Yearly']
 Unit_radio_data = ['Qty_sqm', 'Qty_pcs', 'Qty_pt']
 
-logistic_app.layout = dmc.MantineProvider(
+app_logistic.layout = dmc.MantineProvider(
     id = 'dark-moder',
     withGlobalStyles=False,
     children = [
-
         # dmc.Header(height=50, children=[dmc.Text("Logistic Analyze")], style={'font-size':30, 'font-family': 'IntegralCF-ExtraBold', 'text-align': 'center', 'color': 'slategray', 'background-color': 'skyblue'}),
         dmc.Title(children='G Factory Logistic Status', order=1, style={'font-family': 'IntegralCF-ExtraBold', 'text-align': 'center', 'color': 'slategray', 'background-color': 'skyblue'}),
         # dmc.Divider(label = 'Overview',  labelPosition='center', size='xl'),
         html.Div(
             children = [
-
-                dmc.Modal(
-                    id = 'the-modal',
-                    overflow = 'inside',
-                    size = 'xl',
-
-                    children = [dmc.Image(src="/assets/images/vgsi_logo.png", alt="vgsi logo", width=200),
-                    ],
-                    opened = False
-                ),
 
                 dmc.Navbar(
                     fixed=True, top=50,
@@ -98,44 +84,27 @@ logistic_app.layout = dmc.MantineProvider(
                             offsetScrollbars=True,
                             type="scroll",
                             children=[
-
-                                #html.Img(src='https://plotly.chiefs.work/ticketing/assets/SA.svg', id  = 'sa-logo', style={'width':160, 'margin-left':50}),
                                 dmc.Divider(label='Exploration', style={"marginBottom": 20, "marginTop": 5}),
                                 dmc.Group(
                                     display="column",
                                     children=[
+                                        dmc.Button(
+                                            "Refresh",
+                                            id='refresh',
+                                            variant="outline",
+                                            leftIcon=DashIconify(icon="material-symbols:refresh"),
+                                            style={"width": 250, "marginBottom": 10, "marginTop": 10},
+                                        ),
                                         create_main_nav_link(
                                             icon="icon-park:ad-product",
                                             label="Board Status",
-                                            href=logistic_app.get_relative_path("/"),
+                                            href=app_logistic.get_relative_path("/"),
                                         ),
                                         create_main_nav_link(
                                             icon="carbon:accessibility-alt",
                                             label="Material Status",
-                                            href=logistic_app.get_relative_path("/Material_Status"),
+                                            href=app_logistic.get_relative_path("/Material_Status"),
                                         ),
-
-                                    ],
-                                ),
-
-                                #Date Range ----
-                                dmc.Divider(label='Date Range', style={"marginBottom": 10, "marginTop": 20}),
-                                dmc.Group(
-                                    display="column",
-                                    children=[
-                                        dmc.DateRangePicker(
-                                            id="date_range",
-                                            # label="Date Range",
-                                            # description="You can also provide a description",
-                                            # minDate=date(2023, 1, 1),
-                                            value=[date(2023,datetime.now().month,1), datetime.now().date()], # + timedelta(days=5)
-                                            style={"width": 280},
-                                        ),
-                                        # dcc.DatePickerRange(
-                                        #     id="date_range",
-                                        #     # min_date_allowed=date(2022,1,1), max_date_allowed=datetime.now().date() + datetime.timedelta(days=365),
-                                        #     start_date=date(2023,datetime.now().month,1), end_date=datetime.now().date(), style={'font_size':10},
-                                        # ),
 
                                     ],
                                 ),
@@ -155,11 +124,27 @@ logistic_app.layout = dmc.MantineProvider(
                                             id="baseInventory_date",
                                             # label="Start Date",
                                             # description="You can also provide a description",
-                                            minDate=date(2022, 1, 1),
+                                            # minDate=date(2022, 1, 1),
                                             value=datetime.now().date(),
-                                            style={"width": 280},
+                                            style={"width": 250},
                                         ),
 
+                                    ],
+                                ),
+
+                                #Date Range ----
+                                dmc.Divider(label='Date Range', style={"marginBottom": 10, "marginTop": 20}),
+                                dmc.Group(
+                                    display="column",
+                                    children=[
+                                        dmc.DateRangePicker(
+                                            id="date_range",
+                                            # label="Date Range",
+                                            # description="You can also provide a description",
+                                            # minDate=date(2023, 1, 1),
+                                            value=[date(datetime.now().year,datetime.now().month,1), datetime.now().date()], # + timedelta(days=5)
+                                            style={"width": 250},
+                                        ),
                                     ],
                                 ),
 
@@ -204,9 +189,8 @@ logistic_app.layout = dmc.MantineProvider(
                                             id="unit_Analyze",
                                             value="Qty_sqm",
                                             # label="Select your favorite framework/library",
-                                            size="sm",
+                                            size='sm',
                                             mt=10, style={"width": 280, "marginBottom": 10},
-
                                         ),
                                     ],
                                 ),
@@ -233,20 +217,21 @@ logistic_app.layout = dmc.MantineProvider(
         )
     ]
 )
-
-#analytics = dash_user_analytics.DashUserAnalytics(app, automatic_routing=False)
-
-@logistic_app.callback(Output('content', 'children'),
-                [Input('url', 'pathname')])
-def display_content(pathname):
-    page_name = logistic_app.strip_relative_path(pathname)
-    print('CHK ok:', pathname)
+@app_logistic.callback(
+    Output('content', 'children'),
+    Input('url', 'pathname'),
+)
+def display_update(pathname):
+    page_name = app_logistic.strip_relative_path(pathname)
+    print('CHK ok:', pathname, page_name)
     if not page_name:  # None or ''
-        return pages.Board_Status.layout
+        # return pages.Board_Status.layout
+        return pages.Board_Status_tmp.layout
     if pathname=='/logistic_analyze_01/Material_Status':
         return pages.Material_Status.layout
+    else: return pages.Board_Status_tmp.layout
 
 
 if __name__ == '__main__':
-    logistic_app.run_server(debug=True)
-    # logistic_app.run_server(debug=False, host='10.50.3.152', port=56032)
+    app_logistic.run_server(debug=True)
+    # app_logistic.run_server(debug=False, host='10.50.3.152', port=56032)

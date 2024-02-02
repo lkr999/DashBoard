@@ -40,7 +40,7 @@ try:
     select_BoardName = [ d for d in df_BI['BoardName'].unique()]
 except mariadb.Error as e: alert(e)
 
-from DashBoard.Logistic.app_tmp import app
+from DashBoard.Logistic.app_logistic_tmp import app
 
 layout = dmc.MantineProvider(
     id = 'dark_moder',

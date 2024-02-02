@@ -12,7 +12,6 @@ import pandas as pd
 import pymysql
 import mariadb
 import dash_pivottable
-import mysql.connector
 import datetime
 
 import plotly.graph_objects as go
@@ -23,29 +22,68 @@ from datetime import date
 from dash import Dash, Input, Output, ctx, dcc, html, dash_table
 from sqlalchemy import create_engine
 from pymsgbox import alert, confirm, password, prompt
+import numba
+import vaex as vx
 
 HOST     = '10.50.3.163'
 DB       = 'gfactoryDB'
 USER = 'leekr'
 PASSWORD = 'g1234'
 
+def db_conn():
+    try:
+        # self.conn = pymysql.connect(host='192.168.1.95', user=USER, password=PASSWORD, db='zeitgypsumdb', charset='utf8')
+        pymysql.install_as_MySQLdb()
+        engine = create_engine("mysql://{user}:{password}@{host}/{db}".format(user=USER, password=PASSWORD, host=HOST, db=DB))
+        # conn = mysql.connector.connect(**config)
+        conn = pymysql.connect(host=HOST, user=USER, password=PASSWORD, db=DB, charset='utf8')
+        cur = conn.cursor()
 
-try:
-    # self.conn = pymysql.connect(host='192.168.1.95', user=USER, password=PASSWORD, db='zeitgypsumdb', charset='utf8')
-    pymysql.install_as_MySQLdb()
-    engine = create_engine("mysql://{user}:{password}@{host}/{db}".format(user=USER, password=PASSWORD, host=HOST, db=DB))
-    # conn = mysql.connector.connect(**config)
-    conn = pymysql.connect(host=HOST, user=USER, password=PASSWORD, db=DB, charset='utf8')
-    cur = conn.cursor()
-except mariadb.Error as e: alert(e)
+        df = pd.read_sql("select *, concat(TOB,' ', Thick, '*' , Width,'*',Length) BoardName from QC_Takeoff;", con=engine)
+
+        df['Date2'] = df['Date']
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['Qty_sqm'] = df['Quantity'] * df['Width'] / 1000 * df['Length'] / 1000
+        df['Qty_pcs'] = df['Quantity']
+        df['Qty_pt'] = df['Qty_pcs'] / abs(df['Quantity'])
+        df['WeekOfYear'] = df['Date'].apply(lambda x: x.isocalendar().week)
+        df['Month'] = df['Date'].apply(lambda x: x.month)
+        df['Quarter'] = df['Date'].apply(lambda x: x.quarter)
+        def fx(row):
+            if row.Time is not None:
+                try:
+                    val_tmp = (float(row.Time) + 24) * 3600 * 24 - 7 * 3600
+                    val = datetime.datetime.fromtimestamp(val_tmp).strftime('%H:%M')
+                except:
+                    val = row.Time
+            else:
+                val = 0
+            return val
+        df['Time2'] = df.apply(fx, axis=1)
+
+        df_wh_trans = pd.read_sql("select * from 810_WH_Transfer;", con=engine)
+
+        df_wh_trans = df_wh_trans.sort_values(by='id', ascending=False).drop_duplicates('packCode')
+
+        df_wh = df.merge(df_wh_trans,how='left', left_on='PackingCode', right_on='packCode')
+        # df_wh['Date'] = pd.to_datetime(df_wh['dateRead'])
+
+        conn.close()
+
+        return df, df_wh
+
+    except mariadb.Error as e: alert(e)
 
 from DashBoard.QC_local.app import qc_app2
-layout = dmc.MantineProvider(
-    id = 'dark_moder', #theme={"colorScheme": "white"},
 
+layout = dmc.MantineProvider(
+    id = 'dark_moder',
+    theme={"colorScheme": "dark"},
+    inherit=True,
+    withNormalizeCSS=True,
     withGlobalStyles=True,
     children=[
-        dmc.Title(children = 'Takeoff Inspection Status', order = 1, style = {'font-family':'IntegralCF-ExtraBold', 'text-align':'left', 'color' :'slategray', 'font-size':20}),
+        dmc.Title(children = 'Takeoff Inspection Status', order = 1, color='green',  style = {'font-family':'IntegralCF-ExtraBold', 'text-align':'left', 'font-size':20}),
         dmc.Divider(label = 'Overview',  labelPosition='center', size='xl'),
 
         # Indicater Overview -----
@@ -60,14 +98,15 @@ layout = dmc.MantineProvider(
                     radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':300,'height': 200},
 
                     children = [
+
                         dmc.Text(id='basedate_result', size='xl', color='red', align='center', style={'font-family': 'IntegralCF-RegularOblique'}),
                         dmc.Divider(labelPosition='center', size='xl'),
                         dmc.Text(id='total_product', size=20, color='blue', align='right', ),
                         dmc.Divider(labelPosition='left', size='xs'),
-                        dmc.Text(id='good_product_daily', size=15, color='black', align='right', ),
-                        dmc.Text(id='sort_product_daily', size=15, color='black', align='right', ),
-                        dmc.Text(id='ng_product_daily', size=15, color='red', align='right', ),
-                        dmc.Text(id='x_product_daily', size=15, color='green', align='right', ),
+                        dmc.Text(id='good_product_daily', size=15, color='red', align='right', ),
+                        dmc.Text(id='sort_product_daily', size=15, color='green', align='right', ),
+                        dmc.Text(id='ng_product_daily', size=15, color='white', align='right', ),
+                        dmc.Text(id='x_product_daily', size=15, color='purple', align='right', ),
                     ]
                 ),
 
@@ -79,10 +118,10 @@ layout = dmc.MantineProvider(
                         dmc.Divider(labelPosition='center', size='xl'),
                         dmc.Text(id='product_monthly', size=20, color='blue', align='right', ),
                         dmc.Divider(labelPosition='left', size='xs'),
-                        dmc.Text(id='good_product_monthly', size=15, color='black', align='right', ),
-                        dmc.Text(id='sort_product_monthly', size=15, color='black', align='right', ),
-                        dmc.Text(id='ng_product_monthly', size=15, color='red', align='right', ),
-                        dmc.Text(id='x_product_monthly', size=15, color='green', align='right', ),
+                        dmc.Text(id='good_product_monthly', size=15, color='red', align='right', ),
+                        dmc.Text(id='sort_product_monthly', size=15, color='green', align='right', ),
+                        dmc.Text(id='ng_product_monthly', size=15, color='white', align='right', ),
+                        dmc.Text(id='x_product_monthly', size=15, color='purple', align='right', ),
                     ]
                 ),
 
@@ -94,10 +133,10 @@ layout = dmc.MantineProvider(
                         dmc.Divider(labelPosition='center', size='xl'),
                         dmc.Text(id='product_weekly', size=20, color='blue', align='right', ),
                         dmc.Divider(labelPosition='left', size='xs'),
-                        dmc.Text(id='good_product_weekly', size=15, color='black', align='right', ),
-                        dmc.Text(id='sort_product_weekly', size=15, color='black', align='right', ),
-                        dmc.Text(id='ng_product_weekly', size=15, color='red', align='right', ),
-                        dmc.Text(id='x_product_weekly', size=15, color='green', align='right', ),
+                        dmc.Text(id='good_product_weekly', size=15, color='red', align='right', ),
+                        dmc.Text(id='sort_product_weekly', size=15, color='green', align='right', ),
+                        dmc.Text(id='ng_product_weekly', size=15, color='white', align='right', ),
+                        dmc.Text(id='x_product_weekly', size=15, color='purple', align='right', ),
                     ]
                 ),
 
@@ -109,11 +148,11 @@ layout = dmc.MantineProvider(
                         dmc.Divider(labelPosition='center', size='xl'),
                         dmc.Text(id='product_last', size=20, color='blue', align='right', ),
                         dmc.Divider(labelPosition='left', size='xs'),
-                        dmc.Text(id='good_product_last', size=15, color='black', align='right', ),
-                        dmc.Text(id='sort_product_last', size=15, color='black', align='right', ),
-                        dmc.Text(id='ng_product_last', size=15, color='red', align='right', ),
-                        dmc.Text(id='x_product_last', size=15, color='green', align='right', ),
-                        dmc.Text(id='update_time', size=15, color='black', align='center', ),
+                        dmc.Text(id='good_product_last', size=15, color='red', align='right', ),
+                        dmc.Text(id='sort_product_last', size=15, color='green', align='right', ),
+                        dmc.Text(id='ng_product_last', size=15, color='white', align='right', ),
+                        dmc.Text(id='x_product_last', size=15, color='purple', align='right', ),
+                        dmc.Text(id='update_time', size=15, color='orange', align='center', ),
                     ]
                 ),
 
@@ -136,7 +175,7 @@ layout = dmc.MantineProvider(
                         dmc.Text('NG Ratio', size='xs', color='dimmed', style={'font-family': 'IntegralCF-RegularOblique'}),
                         dmc.Divider(labelPosition='center', size='xl'),
                         dmc.Progress(id='ng_daily_ratio',value=0, label="0%", size=18, color='blue'),
-                        dmc.Text(id='ng_daily_qty', size='xs', color='blue',),
+                        dmc.Text(id='ng_daily_qty', size='xs', color='purple',),
                     ]
                 ),
             ]
@@ -228,7 +267,7 @@ layout = dmc.MantineProvider(
                             id="aggrid_1",
                             defaultColDef={"resizable": True, "sortable": True, "filter": True},
                             dashGridOptions={"rowHeight": 30},
-                            style={'height': 400},
+                            style={'height': 400, 'background-color':'gray', 'font-color':'white'},
                             columnSize='sizeToFit',
                             columnSizeOptions={"skipHeader": True},
                         )
@@ -245,6 +284,14 @@ layout = dmc.MantineProvider(
                             vals=['Qty_pt'],
                             aggregatorName='Sum',
                         ),
+                    ]
+                ),
+
+                # Ware House Status plot ----
+                dmc.Paper(
+                    radius='sm',  withBorder=True, shadow='xs', p='sm', style={'width':1550,'height': 600},
+                    children = [
+                        dcc.Graph(id='takeoff_chart_2',),
                     ]
                 ),
 
@@ -316,13 +363,15 @@ layout = dmc.MantineProvider(
     Output('graph_comments_2', 'children'),
     Output('graph_comments_3', 'children'),
     Output('graph_comments_4', 'children'),
-    Output('graph_comments_5', 'children'),],
+    Output('graph_comments_5', 'children'),
+
+    Output('takeoff_chart_2', 'figure'),],
 
     # Board Inventory ---
     [Input('date_range', 'value'),
     Input('baseInventory_date', 'value'),
     Input('radio_period', 'value'),
-    Input('level_checkList', 'value'),
+    Input('chip_evaluate', 'value'),
     Input('unit_Analyze', 'value'),
     Input('oneday_range', 'checked'),
 
@@ -335,9 +384,18 @@ layout = dmc.MantineProvider(
     Input('filter_apply', 'checked'),]
 
 )
-def update_contents(date_range, baseInventory_date, radio_period, level_checkList, unit_Analyze, oneday_range,
+def update_contents(date_range, baseInventory_date, radio_period, chip_evaluate, unit_Analyze, oneday_range,
                     select_boardname, select_groupby, x_axis, select_graph,
                     n_clicks, filter_apply):
+
+    # DB Read -----
+    df = db_conn()[0]
+    df_no_qry = df.copy()
+    df_scan = db_conn()[1]
+
+    df.to_csv('D:\\G_FactoryDB_Asset\\PKL\\qc_takeoff.csv')
+    df_scan.to_csv('D:\\G_FactoryDB_Asset\\PKL\\810_wh_transfer.csv')
+
 
     # Initial define ------
     select_groupby_val = []
@@ -372,60 +430,32 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
         baseInventory_date = datetime.date(int(baseInventory_date[:4]), int(baseInventory_date[5:7]), int(baseInventory_date[8:10]))
 
         takeoff_chart_1 = go.Figure()
+        takeoff_chart_2 = go.Figure()
         if oneday_range:
             start_date = baseInventory_date
             end_date = baseInventory_date
 
             # Monthly Result ----
-        year_base = baseInventory_date.year
-        month_base = baseInventory_date.month
-
-        start_year = date(year_base, 1, 1)
-        start_month = date(year_base, month_base, 1)
+        start_year = date(baseInventory_date.year, 1, 1)
+        start_month = date(baseInventory_date.year, baseInventory_date.month, 1)
 
 
         if len(select_boardname)>=1:
-            qry_board_date = "(BoardName in @select_boardname) and (Evaluate in @level_checkList) and Date>=@start_date and Date<=@end_date"
-            qry_monthly_txt = "(BoardName in @select_boardname) and (Evaluate in @level_checkList) and Date>=@start_month and Date<=@baseInventory_date"
-            qry_board_level = "(BoardName in @select_boardname) and Evaluate in @level_checkList"
-            qry_weekly_txt = "(BoardName in @select_boardname) and (Evaluate in @level_checkList) and Date>=@start_year and Date<=@end_date and WeekOfYear==@week_day"
+            qry_board_date = "(BoardName in @select_boardname) and (Evaluate in @chip_evaluate) and Date>=@start_date and Date<=@end_date"
+            qry_monthly_txt = "(BoardName in @select_boardname) and (Evaluate in @chip_evaluate) and Date>=@start_month and Date<=@baseInventory_date"
+            qry_board_level = "(BoardName in @select_boardname) and Evaluate in @chip_evaluate"
+            qry_weekly_txt = "(BoardName in @select_boardname) and (Evaluate in @chip_evaluate) and Date>=@start_year and Date<=@end_date and WeekOfYear==@week_day"
 
         else:
-            qry_board_date = "Evaluate in @level_checkList and Date>=@start_date and Date<=@end_date"
-            qry_monthly_txt = "(Evaluate in @level_checkList) and Date>=@start_month and Date<=@baseInventory_date"
-            qry_board_level = "Evaluate in @level_checkList"
-            qry_weekly_txt = "(Evaluate in @level_checkList) and Date>=@start_year and Date<=@end_date and WeekOfYear==@week_day"
+            qry_board_date = "Evaluate in @chip_evaluate and Date>=@start_date and Date<=@end_date"
+            qry_monthly_txt = "(Evaluate in @chip_evaluate) and Date>=@start_month and Date<=@baseInventory_date"
+            qry_board_level = "Evaluate in @chip_evaluate"
+            qry_weekly_txt = "(Evaluate in @chip_evaluate) and Date>=@start_year and Date<=@end_date and WeekOfYear==@week_day"
 
 
         Evaluate_color = {'G': 'red', 'G2': 'cyan', 'G3': 'blue', 'S': 'yellow', 'X': 'gray', 'NG': 'purple'}
 
-
-        # DB Read -----
-        df = pd.read_sql("select *, concat(TOB,' ', Thick, '*' , Width,'*',Length) BoardName from QC_Takeoff;", con=engine)
-        df['Date2'] = df['Date']
-        df['Date'] = pd.to_datetime(df['Date'])
-        df['Qty_sqm'] = df['Quantity'] * df['Width'] / 1000 * df['Length'] / 1000
-        df['Qty_pcs'] = df['Quantity']
-        df['Qty_pt'] = df['Qty_pcs'] / abs(df['Quantity'])
-        df['WeekOfYear'] = df['Date'].apply(lambda x: x.isocalendar().week)
-        df['Month'] = df['Date'].apply(lambda x: x.month)
-        df['Quarter'] = df['Date'].apply(lambda x: x.quarter)
-
-        def fx(row):
-            if row.Time is not None:
-                try:
-                    val_tmp = (float(row.Time) + 24) * 3600 * 24 - 7 * 3600
-                    val = datetime.datetime.fromtimestamp(val_tmp).strftime('%H:%M')
-                except:
-                    val = row.Time
-            else:
-                val = 0
-            return val
-        df['Time2'] = df.apply(fx, axis=1)
-        df_no_qry = df.copy()
-        # df = df.query(qry_board_date)
-
-        board_List = df.query("Evaluate in @level_checkList and Date>=@start_date and Date<=@end_date").sort_values('BoardName')['BoardName'].unique()
+        board_List = df.query("Evaluate in @chip_evaluate and Date>=@start_date and Date<=@end_date").sort_values('BoardName')['BoardName'].unique()
 
         select_groupby_list = ['Date2','WeekOfYear', 'Month', 'Quarter', 'Evaluate','BoardName']
         x_axis_list = ['Date2','WeekOfYear', 'Month', 'Quarter', 'Evaluate','BoardName']
@@ -578,8 +608,6 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
         else:
             qry_daterange_1 = "Date>=@start_date and Date<=@end_date"
             qry_daterange_2 = "Date>=@start_date and Date<=@end_date" + " and " + qry_board_level
-
-
 
 
         if select_graph=='Good Board Ratio(Daily)':
@@ -738,11 +766,11 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
                 return val
             df_no_qry['EV_point'] = df_no_qry.apply(f_ev_point, axis=1)
 
-            df_bar_2 = df_no_qry.query(qry_board_date)[['Date2', 'BoardName', 'LotNo', 'Time2', 'Evaluate', 'Discription', 'Quantity', 'Qty_sqm', 'Qty_pcs', 'Qty_pt','EV_point']].sort_values(by=['LotNo'])
+            df_bar_2 = df_no_qry.query(qry_last_txt)[['Date2', 'BoardName', 'LotNo', 'Time2', 'Evaluate', 'Discription', 'Quantity', 'Qty_sqm', 'Qty_pcs', 'Qty_pt','EV_point']].sort_values(by=['LotNo'], ascending=True)
 
             if df_bar_2.empty: pass
             else:
-                bar_chart_2 = px.scatter(df_bar_2, x='Time2', y='EV_point', color='Evaluate', hover_data={'Time2', 'Discription'}, color_discrete_map=Evaluate_color)
+                bar_chart_2 = px.scatter(df_bar_2, x='LotNo', y='EV_point', color='Evaluate', hover_data={'Time2', 'Discription'}, color_discrete_map=Evaluate_color)
                 bar_chart_2.update_traces(texttemplate='%{y:,.0f} ',)
 
                 takeoff_chart_1 = bar_chart_2
@@ -756,13 +784,37 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
         pv1_vals = [unit_Analyze]
 
         # AgGrid Table ----
-        qry_basedate_evaluate= 'Date==@baseInventory_date and Evaluate in @level_checkList'
+        qry_basedate_evaluate= 'Date==@baseInventory_date and Evaluate in @chip_evaluate'
         df_aggrid_1 = df_no_qry.query(qry_basedate_evaluate)[['Date2', 'BoardName', 'LotNo', 'Time2', 'Evaluate', 'Discription', 'Quantity']].sort_values(['Date2', 'BoardName'])
 
         # dt1_columns = [{'name': 'Date', 'id': 'Date2'}, {'name': 'BoardName', 'id': 'BoardName'}, {'Evaluate': 'Date', 'id': 'Evaluate'}, {'name': 'Pallet No.', 'id': 'Quantity'}, {'name': 'Qty_sq', 'id': 'Qty_sqm'} ]
         width_col = [120, 180, 100, 100, 100, 700, 150]
         aggrid_col = [{'headerName': i, 'field': i, 'width': width_col[k]} for k, i in enumerate(df_aggrid_1.columns)]
         aggrid_data = df_aggrid_1.to_dict('records')
+
+
+        # Scan Status ---
+
+        if df_scan.empty: pass
+        else:
+            df_scan_chart = df_scan.query(qry_pv).groupby(by=['numWH', 'BoardName'], as_index=False).agg({'Qty_pt': 'sum', 'Qty_sqm': 'sum', 'Qty_pcs': 'sum'}).sort_values('numWH', ascending=False)
+            bar_chart_wh = px.bar(df_scan_chart, x='numWH', y=unit_Analyze, color='BoardName', barmode='group')
+            bar_chart_wh.update_traces(texttemplate='%{y:,.0f} ', )
+
+            takeoff_chart_2 = bar_chart_wh
+
+        # Graph Color Change ---
+        takeoff_chart_1.layout.plot_bgcolor = '#ddd'
+        takeoff_chart_1.layout.paper_bgcolor = '#101010'
+        takeoff_chart_1.update_xaxes(title_font_color='white', color='white')
+        takeoff_chart_1.update_yaxes(title_font_color='white', color='white')
+        takeoff_chart_1.layout.legend.bgcolor = 'white'
+
+        takeoff_chart_2.layout.plot_bgcolor = '#333'
+        takeoff_chart_2.layout.paper_bgcolor = '#101010'
+        takeoff_chart_2.update_xaxes(title_font_color='white', color='white')
+        takeoff_chart_2.update_yaxes(title_font_color='white', color='white')
+        takeoff_chart_2.layout.legend.bgcolor = 'white'
 
 
         return [select_groupby_list, board_List, x_axis_list,
@@ -775,8 +827,9 @@ def update_contents(date_range, baseInventory_date, radio_period, level_checkLis
                 last_result, last_result_1, last_result_2, last_result_3, last_result_4, last_result_5, last_result_6, # 6
                 takeoff_chart_1, x_axis_val, select_groupby_val, graph_title,
                 data_pv1,aggrid_col, aggrid_data, pv1_vals,
-                graph_comments_1, graph_comments_2, graph_comments_3, graph_comments_4, graph_comments_5]
+                graph_comments_1, graph_comments_2, graph_comments_3, graph_comments_4, graph_comments_5,
+                takeoff_chart_2]
 
     except Exception as e:
-        alert(e)
+        # alert(e)
         return
